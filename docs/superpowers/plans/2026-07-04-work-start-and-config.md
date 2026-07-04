@@ -331,7 +331,7 @@ Create `packages/git/package.json`:
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "bun --bun vitest run",
     "lint": "biome check",
     "typecheck": "tsc --noEmit"
   },
@@ -380,11 +380,27 @@ Expected: completes without error; `node_modules/@mono/git` symlinked
 
 - [ ] **Step 2: Write the failing tests**
 
+**Runtime note:** run this package's tests as `bun --bun vitest run`, not plain
+`bunx vitest run` — under a bare `vitest` invocation, Vitest's workers run under
+real Node.js even when launched via `bun run`/`bunx`, so the `Bun` global (and
+`Bun.$`, used below) is undefined. `packages/git/package.json`'s `"test"` script
+(Step 1) must be `"bun --bun vitest run"` for this reason.
+
+**Import note:** import `BunChildProcessSpawner` from its own subpath
+(`@effect/platform-bun/BunChildProcessSpawner`), not the package's top-level
+barrel — the barrel re-exports `BunRedis`, which imports the `"bun"` bare
+specifier and can fail to resolve under Vitest's module graph. Likewise, import
+`ChildProcess`/`ChildProcessSpawner` in `GitClient.ts` (Step 4) from their own
+subpaths (`effect/unstable/process/ChildProcess`,
+`effect/unstable/process/ChildProcessSpawner`) rather than the
+`effect/unstable/process` barrel, which re-exports `ChildProcessSpawner` as a
+namespace object rather than the `Context.Service` tag itself.
+
 Create `packages/git/tests/GitClient.test.ts`:
 
 ```ts
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { BunChildProcessSpawner } from "@effect/platform-bun";
+import * as BunChildProcessSpawner from "@effect/platform-bun/BunChildProcessSpawner";
 import { Effect, Layer } from "effect";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -483,7 +499,7 @@ describe("GitClient.defaultRemoteBranch", () => {
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `cd packages/git && bunx vitest run tests/GitClient.test.ts`
+Run: `cd packages/git && bun --bun vitest run tests/GitClient.test.ts`
 Expected: FAIL — `../src/errors.ts` and `../src/GitClient.ts` don't exist yet.
 
 - [ ] **Step 4: Implement `errors.ts` and `GitClient.ts`**
@@ -507,7 +523,8 @@ Create `packages/git/src/GitClient.ts`:
 ```ts
 import { Effect, Layer, Stream } from "effect";
 import * as Context from "effect/Context";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { GitCommandError } from "./errors.ts";
 
 export class GitClient extends Context.Service<
@@ -532,8 +549,8 @@ export class GitClient extends Context.Service<
           Effect.gen(function* () {
             const handle = yield* spawner.spawn(ChildProcess.make("git", args));
             const [stdout, stderr, exitCode] = yield* Effect.all([
-              Stream.mkString(handle.stdout),
-              Stream.mkString(handle.stderr),
+              Stream.mkString(Stream.decodeText(handle.stdout)),
+              Stream.mkString(Stream.decodeText(handle.stderr)),
               handle.exitCode,
             ]);
             return {
@@ -543,13 +560,12 @@ export class GitClient extends Context.Service<
             };
           }),
         ).pipe(
-          Effect.catch((error) =>
-            Effect.fail(
+          Effect.mapError(
+            (error) =>
               new GitCommandError({
                 command: `git ${args.join(" ")}`,
                 stderr: String(error),
               }),
-            ),
           ),
           Effect.flatMap(({ stdout, stderr, exitCode }) =>
             exitCode === 0
@@ -584,7 +600,7 @@ export * from "./GitClient.ts";
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd packages/git && bunx vitest run tests/GitClient.test.ts`
+Run: `cd packages/git && bun --bun vitest run tests/GitClient.test.ts`
 Expected: PASS (all 6 tests)
 
 - [ ] **Step 6: Typecheck and lint**
@@ -819,21 +835,42 @@ Expected: completes without error
 
 Create `apps/cli/tests/config/loadConfig.test.ts`:
 
+**Import note (found during Task 2):** `@effect/platform-bun`'s top-level barrel
+re-exports `BunRedis`, which imports the `"bun"` bare specifier — that's fine under
+`bun:test` (this file's runner), but import the concrete services from their own
+subpaths anyway, matching the fix already committed in `packages/git/tests/GitClient.test.ts`:
+`@effect/platform-bun/BunChildProcessSpawner`, `@effect/platform-bun/BunFileSystem`,
+`@effect/platform-bun/BunPath`. Also, `BunChildProcessSpawner.layer` itself requires
+`FileSystem | Path` internally (confirmed while building Task 2) — `Layer.provide`
+it onto `GitClient.layer` alongside `BunFileSystem.layer`/`BunPath.layer` first so
+those requirements are resolved, **then** `Layer.mergeAll` the result with standalone
+`BunFileSystem.layer`/`BunPath.layer` so `FileSystem`/`Path` are still available as
+top-level services for `loadConfig`'s own direct use (a plain `Layer.mergeAll` of all
+of them side-by-side, as an earlier draft of this task had, leaves `FileSystem | Path`
+as an unresolved requirement on the composite — `Layer.mergeAll` does not cross-wire
+sibling requirements; see `BunServices.layer`'s own definition in
+`@effect/platform-bun/src/BunServices.ts`, which uses `Layer.provideMerge` for exactly
+this reason).
+
 ```ts
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { GitClient } from "@mono/git";
-import { BunChildProcessSpawner, BunFileSystem, BunPath } from "@effect/platform-bun";
+import * as BunChildProcessSpawner from "@effect/platform-bun/BunChildProcessSpawner";
+import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
+import * as BunPath from "@effect/platform-bun/BunPath";
 import { Effect, Layer, Option } from "effect";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findProjectConfigPath, loadConfig } from "../../src/config/loadConfig.ts";
 
-const testLayer = Layer.mergeAll(
-  BunFileSystem.layer,
-  BunPath.layer,
-  GitClient.layer.pipe(Layer.provide(BunChildProcessSpawner.layer)),
+const gitLayer = GitClient.layer.pipe(
+  Layer.provide(BunChildProcessSpawner.layer),
+  Layer.provide(BunFileSystem.layer),
+  Layer.provide(BunPath.layer),
 );
+
+const testLayer = Layer.mergeAll(gitLayer, BunFileSystem.layer, BunPath.layer);
 
 let repoDir: string;
 let originalCwd: string;
