@@ -5,7 +5,7 @@
     "": {
       "name": "mono",
       "devDependencies": {
-        "@effect/language-service": "latest",
+        "@effect/language-service": "catalog:tools",
         "@types/bun": "latest",
       },
       "peerDependencies": {
@@ -19,6 +19,18 @@
         "@effect/platform-bun": "catalog:effect",
         "@mono/jira": "workspace:*",
         "effect": "catalog:effect",
+      },
+    },
+    "packages/git": {
+      "name": "@mono/git",
+      "version": "0.0.1",
+      "dependencies": {
+        "effect": "catalog:effect",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "catalog:effect",
+        "@effect/vitest": "catalog:effect",
+        "vitest": "^4.0.0",
       },
     },
     "packages/jira": {
@@ -39,9 +51,14 @@
       "@effect/vitest": "4.0.0-beta.93",
       "effect": "4.0.0-beta.93",
     },
+    "tools": {
+      "@effect/language-service": "0.86.2",
+      "typescript": "6.0.3",
+      "vitest": "4.1.9",
+    },
   },
   "packages": {
-    "@effect/language-service": ["@effect/language-service@0.86.4", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-XzAPsbwCdm0gRh0E8wJu3wXECb00QraE3LnbObA4RgHn8u2TEbwAjmBadRnwSgOIElfzZjbsRqNR706/V54hDg=="],
+    "@effect/language-service": ["@effect/language-service@0.86.2", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-SaPln+8srOqDJDUwNTDmP5e+IYpEDr9+1epGznnsLqu8xvo6VnxyWARdeLpqvZJlb0Pgy9ca7ppqvvdWbHPXAg=="],
 
     "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.93", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.93" }, "peerDependencies": { "effect": "^4.0.0-beta.93" } }, "sha512-pny29d1NhJ7XLv19as7A0pIZr+QFi5KejnwB/lLW1c8P63t+PDMPEn21toy2vx2yzl9xRTo8heyiXPXRsqPN5w=="],
 
@@ -58,6 +75,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@mono/cli": ["@mono/cli@workspace:apps/cli"],
+
+    "@mono/git": ["@mono/git@workspace:packages/git"],
 
     "@mono/jira": ["@mono/jira@workspace:packages/jira"],
 
