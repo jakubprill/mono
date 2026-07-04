@@ -1,0 +1,11 @@
+[tools]
+bun = "1.3.14"
+biome = "2.5.2"
+lefthook = "2.1.9"
+
+[tasks.install-cli]
+description = "Build and install CLI globally"
+run = """
+bun run --filter=@mono/cli build
+ln -sf {{config_root}}/apps/cli/dist/cli ~/.local/bin/mono-cli
+"""
