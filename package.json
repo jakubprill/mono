@@ -13,7 +13,7 @@
     "typecheck": "bun run --filter=\"*\" --parallel --skip-if-missing typecheck"
   },
   "devDependencies": {
-    "@effect/language-service": "latest",
+    "@effect/language-service": "catalog:tools",
     "@types/bun": "latest"
   },
   "peerDependencies": {
@@ -21,9 +21,14 @@
   },
   "catalogs": {
     "effect": {
-      "effect": "4.0.0-beta.93",
       "@effect/platform-bun": "4.0.0-beta.93",
-      "@effect/vitest": "4.0.0-beta.93"
+      "@effect/vitest": "4.0.0-beta.93",
+      "effect": "4.0.0-beta.93"
+    },
+    "tools": {
+      "@effect/language-service": "0.86.2",
+      "typescript": "6.0.3",
+      "vitest": "4.1.9"
     }
   }
 }
