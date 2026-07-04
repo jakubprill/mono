@@ -1,4 +1,4 @@
-# Git/PR Workflow (issue start + AI commit) — Design
+# Work Workflow (issue start + AI commit) — Design
 
 **Date:** 2026-07-04
 **Status:** Draft
@@ -16,10 +16,10 @@ for AI coding agents.
 
 New top-level commands:
 
-- `mono-cli git start <KEY>` — start work on a Jira issue: pick a base
+- `mono-cli work start <KEY>` — start work on a Jira issue: pick a base
   branch, create a new branch from a configurable template, transition the
   Jira issue to a configured status.
-- `mono-cli git commit [--issue/-i KEY]` — build a structured context
+- `mono-cli work commit [--issue/-i KEY]` — build a structured context
   (staged diff + linked Jira issue + project commit convention) and print
   an AI-generated commit message. Does not run `git commit`.
 - `mono-cli mcp` — stdio MCP server exposing a `get_commit_context` tool
@@ -28,14 +28,20 @@ New top-level commands:
 - New project config file `mono-cli.config.json`, validated with Effect
   Schema, with a generated JSON Schema for editor autocompletion.
 
+Both `start` and `commit` live under a new `work` command group rather
+than `git`, because both orchestrate across git + Jira (+ AI, for
+`commit`) — they aren't pure git operations. This keeps `git` and `jira`
+free for future commands that are genuinely single-domain (e.g. general
+git helpers, `jira issue create`).
+
 **Out of scope (explicitly deferred):**
 
 - `mr create` / GitLab MR generation and creation
 - General-purpose git helper commands (status, sync, cleanup)
 - Plugin architecture (built-in vs. org-private plugins like `pm`) —
   revisited separately later
-- Git worktree mode for `git start` (plain branch checkout only, for now)
-- Non-interactive `git start` for CI/scripted use
+- Git worktree mode for `work start` (plain branch checkout only, for now)
+- Non-interactive `work start` for CI/scripted use
 - Storing AI provider API keys anywhere other than env vars
 - Import linter for monorepo import rules
 
@@ -55,8 +61,8 @@ packages/
 
 apps/cli/src/
   config/                   new — mono-cli.config.json: Schema, loader, JSON Schema generator
-  git/
-    command.ts                `git` group: withSubcommands([startCommand, commitCommand])
+  work/
+    command.ts                `work` group: withSubcommands([startCommand, commitCommand])
     start.ts                  `start <key>` — orchestrates GitClient + JiraClient + config
     commit.ts                 `commit` — builds CommitContext, calls @mono/ai, prints result
     commit-context.ts          shared builder, used by both commit.ts and mcp/tools.ts
@@ -67,7 +73,7 @@ apps/cli/src/
 
 `@mono/git` and `@mono/ai` are packages because they're clean, testable,
 non-CLI-specific concerns (same reasoning as `@mono/jira`) — potentially
-reusable outside the CLI later. The orchestration itself (`git start`,
+reusable outside the CLI later. The orchestration itself (`work start`,
 commit-context building) stays inside `apps/cli`, since today it only has
 one consumer (this app — both the CLI command and the MCP tool are the
 same binary). No second consumer exists yet, so it isn't extracted into its
@@ -103,13 +109,13 @@ needed.
 }
 ```
 
-- `git.baseBranches` — optional. If missing/empty, `git start` skips the
+- `git.baseBranches` — optional. If missing/empty, `work start` skips the
   prompt and uses the autodetected remote default branch directly.
 - `git.branchTemplate` — placeholders `{type}`, `{key}`, `{slug}`.
   Default template if the config file or field is absent: `"{key}-{slug}"`.
   `{type}` defaults to the lowercased Jira issue type name;
   `issueTypeAliases` overrides specific types.
-- `jira.startTransitionStatus` — optional. If absent, `git start` skips the
+- `jira.startTransitionStatus` — optional. If absent, `work start` skips the
   Jira transition step entirely (branch is still created).
 - `ai.provider` / `ai.model` — selects the `@mono/ai` layer
   (anthropic/openai/openrouter/openai-compat). The API key is always read
@@ -123,11 +129,11 @@ Effect Schema definition (written to e.g. `.mono-cli/schema.json`), which
 the config file's `$schema` field points to for editor autocompletion.
 
 Missing config file or missing optional fields fall back to the defaults
-described above — the config file itself is entirely optional for `git
-start`/`git commit` to work in their simplest form (except the AI provider
-API key, which is required for `git commit`).
+described above — the config file itself is entirely optional for `work
+start`/`work commit` to work in their simplest form (except the AI provider
+API key, which is required for `work commit`).
 
-## Flow: `mono-cli git start <KEY>`
+## Flow: `mono-cli work start <KEY>`
 
 ```
 1. load config (missing → defaults)
@@ -152,9 +158,9 @@ A failure in step 6 does not roll back the created branch — the user
 still wants to start working; the Jira status change is a side effect, not
 a precondition.
 
-## Flow: `mono-cli git commit` and MCP tool `get_commit_context`
+## Flow: `mono-cli work commit` and MCP tool `get_commit_context`
 
-Shared builder (`apps/cli/src/git/commit-context.ts`):
+Shared builder (`apps/cli/src/work/commit-context.ts`):
 
 ```
 buildCommitContext(overrideIssueKey?: string):
@@ -169,7 +175,7 @@ buildCommitContext(overrideIssueKey?: string):
   → CommitContext { diff, issue, convention }
 ```
 
-- `mono-cli git commit [--issue/-i KEY]`: builds `CommitContext`, passes it
+- `mono-cli work commit [--issue/-i KEY]`: builds `CommitContext`, passes it
   to `@mono/ai#generateCommitMessage`, `Console.log`s the resulting message
   only. Provider/model come from config.
 - `mono-cli mcp`: `McpServer.layerStdio` + a `Toolkit` with a single
@@ -206,13 +212,13 @@ template.
 - `config/` — decoding `mono-cli.config.json`: valid file, missing
   optional fields → defaults, invalid JSON/schema → clear error; JSON
   Schema generator — snapshot of the generated schema
-- `git/start.ts` — orchestration with fake `GitClient`/`JiraClient` test
+- `work/start.ts` — orchestration with fake `GitClient`/`JiraClient` test
   layers: happy path; missing `startTransitionStatus` → transition skipped
   with a warning; no matching status → branch still created
-- `git/commit-context.ts` — Jira key matcher: from branch name, from
+- `work/commit-context.ts` — Jira key matcher: from branch name, from
   commits (when branch name doesn't match), from `--issue`, none found →
   clear failure; empty staged diff → early failure
-- `git/commit.ts` — integration of builder → `generateCommitMessage` →
+- `work/commit.ts` — integration of builder → `generateCommitMessage` →
   `Console.log` only, no `git commit` call
 - `mcp/tools.ts` — `get_commit_context` returns the same data shape as
   `commit-context.ts` (reuses the builder, so the test mainly checks JSON
@@ -226,6 +232,6 @@ template.
 - `mr create` and GitLab MR generation/creation
 - General git helper commands (status, sync with main, post-merge cleanup)
 - Plugin architecture (built-in vs. private org plugins like `pm`)
-- Git worktree mode for `git start`
-- Non-interactive `git start` for CI/scripts
+- Git worktree mode for `work start`
+- Non-interactive `work start` for CI/scripts
 - Import linter for monorepo import rules
