@@ -48,7 +48,7 @@ export class JiraClient extends Context.Service<
         (key: string): Effect.Effect<Issue, JiraError> =>
           Effect.gen(function* () {
             const response = yield* http.get(
-              `${config.baseUrl}/rest/api/2/issue/${key}`,
+              `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}`,
               {
                 headers: {
                   Authorization: `Bearer ${Redacted.value(config.token)}`,

@@ -11,7 +11,9 @@ export class JiraConfig extends Context.Service<
   static readonly layer = Layer.effect(
     JiraConfig,
     Effect.gen(function* () {
-      const baseUrl = yield* Config.string("JIRA_BASE_URL");
+      const baseUrl = yield* Config.string("JIRA_BASE_URL").pipe(
+        Config.map((url) => url.replace(/\/+$/, "")),
+      );
       const token = yield* Config.redacted("JIRA_TOKEN");
       return { baseUrl, token };
     }),

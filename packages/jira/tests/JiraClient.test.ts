@@ -40,6 +40,18 @@ const jsonFetch = (status: number, body: unknown): typeof fetch =>
 const failingFetch = (message: string): typeof fetch =>
   (() => Promise.reject(new Error(message))) as unknown as typeof fetch;
 
+const capturingFetch = (
+  status: number,
+  body: unknown,
+): { fetch: typeof fetch; requestedUrl: () => string | undefined } => {
+  let requestedUrl: string | undefined;
+  const fetchFn = ((input: string | URL) => {
+    requestedUrl = String(input);
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
+  }) as unknown as typeof fetch;
+  return { fetch: fetchFn, requestedUrl: () => requestedUrl };
+};
+
 const testLayer = (mockFetch: typeof fetch) =>
   JiraClient.layer.pipe(
     Layer.provide(
@@ -97,6 +109,21 @@ describe("JiraClient.getIssue", () => {
       expect((failure as JiraAuthError).status).toBe(401);
     }).pipe(Effect.provide(testLayer(jsonFetch(401, {})))),
   );
+
+  it.effect("percent-encodes special characters in the issue key", () => {
+    const { fetch: mockFetch, requestedUrl } = capturingFetch(
+      200,
+      rawIssueJson({ key: "PROJ/123" }),
+    );
+
+    return Effect.gen(function* () {
+      const jira = yield* JiraClient;
+      yield* jira.getIssue("../../serverInfo");
+      expect(requestedUrl()).toContain(
+        "/rest/api/2/issue/..%2F..%2FserverInfo",
+      );
+    }).pipe(Effect.provide(testLayer(mockFetch)));
+  });
 
   it.effect("maps a transport failure to JiraHttpError", () =>
     Effect.gen(function* () {
