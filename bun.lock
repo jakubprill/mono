@@ -17,6 +17,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@effect/platform-bun": "catalog:effect",
+        "@mono/jira": "workspace:*",
         "effect": "catalog:effect",
       },
     },
