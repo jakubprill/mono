@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Issue } from "@mono/jira";
-import { renderIssue } from "../../src/jira/render.ts";
+import { renderIssue } from "../../../src/jira/issue/render.ts";
 
 const issue = new Issue({
   key: "PROJ-123",
