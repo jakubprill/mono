@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "effect": "catalog:effect",
-    "@effect/platform-bun": "catalog:effect"
+    "@effect/platform-bun": "catalog:effect",
+    "@mono/jira": "workspace:*"
   }
 }
