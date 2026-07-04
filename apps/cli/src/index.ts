@@ -1,6 +1,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { jiraCommand } from "./jira/show.ts";
 
 const name = Argument.string("name").pipe(Argument.withDefault("World"));
 const shout = Flag.boolean("shout").pipe(Flag.withAlias("s"));
@@ -12,7 +13,7 @@ const greet = Command.make("greet", { name, shout }, ({ name, shout }) => {
 
 const cli = Command.make("mono-cli", {}).pipe(
   Command.withDescription("mono CLI"),
-  Command.withSubcommands([greet]),
+  Command.withSubcommands([greet, jiraCommand]),
 );
 
 const program = Command.run(cli, {
