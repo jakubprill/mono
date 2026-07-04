@@ -3,6 +3,7 @@ import * as Context from "effect/Context";
 import {
   HttpClient,
   HttpClientError,
+  HttpClientRequest,
   HttpClientResponse,
 } from "effect/unstable/http";
 import {
@@ -13,6 +14,11 @@ import {
 } from "./errors.ts";
 import { type Issue, RawIssue, toIssue } from "./Issue.ts";
 import { JiraConfig } from "./JiraConfig.ts";
+import {
+  RawTransitionsResponse,
+  type Transition,
+  toTransition,
+} from "./Transition.ts";
 
 const mapError = (
   key: string,
@@ -34,6 +40,13 @@ export class JiraClient extends Context.Service<
   JiraClient,
   {
     readonly getIssue: (key: string) => Effect.Effect<Issue, JiraError>;
+    readonly getTransitions: (
+      key: string,
+    ) => Effect.Effect<ReadonlyArray<Transition>, JiraError>;
+    readonly transitionIssue: (
+      key: string,
+      transitionId: string,
+    ) => Effect.Effect<void, JiraError>;
   }
 >()("@mono/JiraClient") {
   static readonly layer = Layer.effect(
@@ -44,16 +57,16 @@ export class JiraClient extends Context.Service<
       );
       const config = yield* JiraConfig;
 
+      const authHeaders = {
+        Authorization: `Bearer ${Redacted.value(config.token)}`,
+      };
+
       const getIssue = Effect.fn("JiraClient.getIssue")(
         (key: string): Effect.Effect<Issue, JiraError> =>
           Effect.gen(function* () {
             const response = yield* http.get(
               `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${Redacted.value(config.token)}`,
-                },
-              },
+              { headers: authHeaders },
             );
             const raw =
               yield* HttpClientResponse.schemaBodyJson(RawIssue)(response);
@@ -61,7 +74,36 @@ export class JiraClient extends Context.Service<
           }).pipe(Effect.catch((error) => mapError(key, error))),
       );
 
-      return { getIssue };
+      const getTransitions = Effect.fn("JiraClient.getTransitions")(
+        (key: string): Effect.Effect<ReadonlyArray<Transition>, JiraError> =>
+          Effect.gen(function* () {
+            const response = yield* http.get(
+              `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}/transitions`,
+              { headers: authHeaders },
+            );
+            const raw = yield* HttpClientResponse.schemaBodyJson(
+              RawTransitionsResponse,
+            )(response);
+            return raw.transitions.map(toTransition);
+          }).pipe(Effect.catch((error) => mapError(key, error))),
+      );
+
+      const transitionIssue = Effect.fn("JiraClient.transitionIssue")(
+        (key: string, transitionId: string): Effect.Effect<void, JiraError> =>
+          Effect.gen(function* () {
+            const request = HttpClientRequest.post(
+              `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}/transitions`,
+              { headers: authHeaders },
+            ).pipe(
+              HttpClientRequest.bodyJsonUnsafe({
+                transition: { id: transitionId },
+              }),
+            );
+            yield* http.execute(request);
+          }).pipe(Effect.catch((error) => mapError(key, error))),
+      );
+
+      return { getIssue, getTransitions, transitionIssue };
     }),
   );
 }
