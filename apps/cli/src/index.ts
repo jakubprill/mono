@@ -1,7 +1,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { jiraCommand } from "./jira/show.ts";
+import { jiraCommand } from "./jira/command.ts";
 
 const name = Argument.string("name").pipe(Argument.withDefault("World"));
 const shout = Flag.boolean("shout").pipe(Flag.withAlias("s"));
