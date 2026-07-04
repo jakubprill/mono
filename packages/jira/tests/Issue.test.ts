@@ -13,6 +13,7 @@ describe("toIssue", () => {
         status: { name: "In Progress" },
         assignee: { displayName: "Jane Doe" },
         description: "Users are redirected to login instead of dashboard.",
+        issuetype: { name: "Bug" },
       },
     });
 
@@ -25,6 +26,7 @@ describe("toIssue", () => {
     expect(issue.description).toBe(
       "Users are redirected to login instead of dashboard.",
     );
+    expect(issue.issueType).toBe("Bug");
   });
 
   test("maps a null assignee and null description to null", () => {
@@ -35,6 +37,7 @@ describe("toIssue", () => {
         status: { name: "Open" },
         assignee: null,
         description: null,
+        issuetype: { name: "Story" },
       },
     });
 
@@ -42,6 +45,7 @@ describe("toIssue", () => {
 
     expect(issue.assignee).toBeNull();
     expect(issue.description).toBeNull();
+    expect(issue.issueType).toBe("Story");
   });
 });
 
@@ -53,6 +57,7 @@ describe("Issue.toMarkdown", () => {
       status: "In Progress",
       assignee: "Jane Doe",
       description: "Users are redirected to login instead of dashboard.",
+      issueType: "Bug",
     });
 
     const markdown = issue.toMarkdown();
@@ -72,6 +77,7 @@ describe("Issue.toMarkdown", () => {
       status: "Open",
       assignee: null,
       description: null,
+      issueType: "Bug",
     });
 
     const markdown = issue.toMarkdown();

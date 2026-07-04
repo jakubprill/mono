@@ -28,6 +28,7 @@ const rawIssueJson = (
       "description" in overrides
         ? overrides.description
         : "Users are redirected to login.",
+    issuetype: { name: "Bug" },
   },
 });
 

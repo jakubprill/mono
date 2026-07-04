@@ -8,11 +8,16 @@ class RawAssignee extends Schema.Class<RawAssignee>("RawAssignee")({
   displayName: Schema.String,
 }) {}
 
+class RawIssueType extends Schema.Class<RawIssueType>("RawIssueType")({
+  name: Schema.String,
+}) {}
+
 class RawFields extends Schema.Class<RawFields>("RawFields")({
   summary: Schema.String,
   status: RawStatus,
   assignee: Schema.NullOr(RawAssignee),
   description: Schema.NullOr(Schema.String),
+  issuetype: RawIssueType,
 }) {}
 
 export class RawIssue extends Schema.Class<RawIssue>("RawIssue")({
@@ -26,6 +31,7 @@ export class Issue extends Schema.Class<Issue>("Issue")({
   status: Schema.String,
   assignee: Schema.NullOr(Schema.String),
   description: Schema.NullOr(Schema.String),
+  issueType: Schema.String,
 }) {
   toMarkdown(): string {
     const lines = [
@@ -47,4 +53,5 @@ export const toIssue = (raw: RawIssue): Issue =>
     status: raw.fields.status.name,
     assignee: raw.fields.assignee?.displayName ?? null,
     description: raw.fields.description,
+    issueType: raw.fields.issuetype.name,
   });
