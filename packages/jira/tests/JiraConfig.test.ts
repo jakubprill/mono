@@ -22,6 +22,24 @@ describe("JiraConfig", () => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("strips a trailing slash from baseUrl", () => {
+    const layer = JiraConfig.layer.pipe(
+      Layer.provide(
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({
+            JIRA_BASE_URL: "https://jira.example.com/",
+            JIRA_TOKEN: "secret-token",
+          }),
+        ),
+      ),
+    );
+
+    return Effect.gen(function* () {
+      const config = yield* JiraConfig;
+      expect(config.baseUrl).toBe("https://jira.example.com");
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect("testLayer provides fixed values", () =>
     Effect.gen(function* () {
       const config = yield* JiraConfig;
