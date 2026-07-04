@@ -8,9 +8,14 @@
 `mono-cli` up to now only proved out the Jira integration concept (issue
 view/move). The tool is meant to become a broader, multi-purpose CLI for
 frontend dev workflows — starting with the piece the user needs most: tying
-git branch/commit work to Jira issues, and generating AI-assisted commit
-messages, usable both as a standalone terminal command and as an MCP tool
-for AI coding agents.
+git branch/commit work to Jira issues, and generating an AI-assisted commit
+message as a standalone terminal command.
+
+This iteration is deliberately narrowed to just the `work` commands. The
+MCP server and the multi-provider AI abstraction from the original design
+are real future needs, but add architecture (a second entrypoint, a
+provider-selection layer) before there's a working end-to-end flow to
+build them against — deferred until `work start`/`work commit` prove out.
 
 ## Scope
 
@@ -20,11 +25,9 @@ New top-level commands:
   branch, create a new branch from a configurable template, transition the
   Jira issue to a configured status.
 - `mono-cli work commit [--issue/-i KEY]` — build a structured context
-  (staged diff + linked Jira issue + project commit convention) and print
-  an AI-generated commit message. Does not run `git commit`.
-- `mono-cli mcp` — stdio MCP server exposing a `get_commit_context` tool
-  that returns the same structured context, for an MCP-capable agent
-  (Claude Code, etc.) to generate the message itself.
+  (staged diff + linked Jira issue + project commit convention), call
+  Anthropic directly, and print the generated commit message. Does not run
+  `git commit`.
 - New project config file `mono-cli.config.json`, validated with Effect
   Schema, with a generated JSON Schema for editor autocompletion.
 
@@ -36,6 +39,12 @@ git helpers, `jira issue create`).
 
 **Out of scope (explicitly deferred):**
 
+- `mono-cli mcp` server and the `get_commit_context` MCP tool — revisited
+  once `work commit` is proven out standalone
+- Multi-provider AI abstraction (OpenAI/OpenRouter/compat) — `@mono/ai`
+  calls Anthropic directly for now; the seam to swap providers later is
+  the point where `generateCommitMessage` calls `LanguageModel`, not a
+  config-driven selector
 - `mr create` / GitLab MR generation and creation
 - General-purpose git helper commands (status, sync, cleanup)
 - Plugin architecture (built-in vs. org-private plugins like `pm`) —
@@ -54,9 +63,9 @@ packages/
                                defaultRemoteBranch, log(range)
     src/errors.ts
   jira/                     existing, unchanged — reuses getIssue/getTransitions/transitionIssue
-  ai/                       new @mono/ai — thin wrapper over effect/unstable/ai LanguageModel
-    src/AiProvider.ts         picks a LanguageModel layer (Anthropic/OpenAI/OpenRouter/compat)
-                               based on config
+  ai/                       new @mono/ai — thin wrapper over effect/unstable/ai LanguageModel,
+                               wired directly to @effect/ai-anthropic (no provider selection yet)
+    src/AnthropicLayer.ts     reads ANTHROPIC_API_KEY, provides the LanguageModel layer
     src/generateCommitMessage.ts   (context, convention) => Effect<string, AiError>
 
 apps/cli/src/
@@ -65,20 +74,17 @@ apps/cli/src/
     command.ts                `work` group: withSubcommands([startCommand, commitCommand])
     start.ts                  `start <key>` — orchestrates GitClient + JiraClient + config
     commit.ts                 `commit` — builds CommitContext, calls @mono/ai, prints result
-    commit-context.ts          shared builder, used by both commit.ts and mcp/tools.ts
-  mcp/
-    command.ts                `mono-cli mcp` — McpServer.layerStdio + toolkit
-    tools.ts                   Tool.make("get_commit_context", ...) → commit-context.ts
+    commit-context.ts          shared builder, used by commit.ts (and later by an MCP tool)
 ```
 
 `@mono/git` and `@mono/ai` are packages because they're clean, testable,
 non-CLI-specific concerns (same reasoning as `@mono/jira`) — potentially
 reusable outside the CLI later. The orchestration itself (`work start`,
 commit-context building) stays inside `apps/cli`, since today it only has
-one consumer (this app — both the CLI command and the MCP tool are the
-same binary). No second consumer exists yet, so it isn't extracted into its
-own package (YAGNI); the boundary is clean enough to do that later if
-needed.
+one consumer (this app). No second consumer exists yet, so it isn't
+extracted into its own package (YAGNI); `commit-context.ts` is already
+factored out as its own module so a future MCP tool can import it without
+restructuring.
 
 ## Configuration
 
@@ -96,7 +102,6 @@ needed.
     "startTransitionStatus": "In Progress"
   },
   "ai": {
-    "provider": "anthropic",
     "model": "claude-sonnet-5",
     "commitConvention": {
       "description": "Conventional Commits, scope = affected package name",
@@ -117,10 +122,9 @@ needed.
   `issueTypeAliases` overrides specific types.
 - `jira.startTransitionStatus` — optional. If absent, `work start` skips the
   Jira transition step entirely (branch is still created).
-- `ai.provider` / `ai.model` — selects the `@mono/ai` layer
-  (anthropic/openai/openrouter/openai-compat). The API key is always read
-  from each provider's standard env var (e.g. `ANTHROPIC_API_KEY`) —
-  never stored in the config file, consistent with `JIRA_TOKEN`.
+- `ai.model` — passed to the Anthropic layer (e.g. `claude-sonnet-5`). The
+  API key is always read from `ANTHROPIC_API_KEY` — never stored in the
+  config file, consistent with `JIRA_TOKEN`.
 - `ai.commitConvention` — free-form description + examples, injected into
   the generation prompt as style guidance.
 
@@ -158,9 +162,10 @@ A failure in step 6 does not roll back the created branch — the user
 still wants to start working; the Jira status change is a side effect, not
 a precondition.
 
-## Flow: `mono-cli work commit` and MCP tool `get_commit_context`
+## Flow: `mono-cli work commit`
 
-Shared builder (`apps/cli/src/work/commit-context.ts`):
+Shared builder (`apps/cli/src/work/commit-context.ts`), factored out on its
+own so a future MCP tool can reuse it without touching this flow:
 
 ```
 buildCommitContext(overrideIssueKey?: string):
@@ -175,14 +180,9 @@ buildCommitContext(overrideIssueKey?: string):
   → CommitContext { diff, issue, convention }
 ```
 
-- `mono-cli work commit [--issue/-i KEY]`: builds `CommitContext`, passes it
-  to `@mono/ai#generateCommitMessage`, `Console.log`s the resulting message
-  only. Provider/model come from config.
-- `mono-cli mcp`: `McpServer.layerStdio` + a `Toolkit` with a single
-  `Tool.make("get_commit_context", ...)`, implemented via
-  `buildCommitContext`, returning the structured data (diff, issue
-  summary/description, convention) as JSON — **no AI call happens here**;
-  the connecting agent generates the message itself using this context.
+`mono-cli work commit [--issue/-i KEY]` builds `CommitContext`, passes it
+to `@mono/ai#generateCommitMessage` (Anthropic, model from config), and
+`Console.log`s the resulting message only.
 
 Jira-key detection is regex-based (rather than parsing `branchTemplate`
 in reverse) — Jira keys have a fixed shape (`ABC-123`) regardless of the
@@ -202,11 +202,9 @@ template.
   clear error
 
 **`packages/ai`:**
-- `generateCommitMessage` — provider swapped for a fake `LanguageModel`
-  test layer (deterministic text) — verifies the prompt includes
-  diff/issue/convention, not that the AI "writes well"
-- provider selection by `config.ai.provider` — correct mapping to the
-  right layer; error on unknown provider
+- `generateCommitMessage` — Anthropic layer swapped for a fake
+  `LanguageModel` test layer (deterministic text) — verifies the prompt
+  includes diff/issue/convention, not that the AI "writes well"
 
 **`apps/cli`:**
 - `config/` — decoding `mono-cli.config.json`: valid file, missing
@@ -220,15 +218,11 @@ template.
   clear failure; empty staged diff → early failure
 - `work/commit.ts` — integration of builder → `generateCommitMessage` →
   `Console.log` only, no `git commit` call
-- `mcp/tools.ts` — `get_commit_context` returns the same data shape as
-  `commit-context.ts` (reuses the builder, so the test mainly checks JSON
-  serialization matches the Tool schema)
-- Manual verification: `mono-cli mcp` actually starts and responds to
-  `tools/list`/`tools/call` through a real MCP client (e.g. Claude Code
-  configured locally) — not practically unit-testable
 
 ## Out of scope (explicitly deferred)
 
+- `mono-cli mcp` server and the `get_commit_context` MCP tool
+- Multi-provider AI abstraction (OpenAI/OpenRouter/compat)
 - `mr create` and GitLab MR generation/creation
 - General git helper commands (status, sync with main, post-merge cleanup)
 - Plugin architecture (built-in vs. private org plugins like `pm`)
