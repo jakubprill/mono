@@ -8,6 +8,7 @@ const issue = new Issue({
   status: "In Progress",
   assignee: "Jane Doe",
   description: "Users are redirected to login instead of dashboard.",
+  issueType: "Bug",
 });
 
 describe("renderIssue", () => {
@@ -27,6 +28,7 @@ describe("renderIssue", () => {
       status: "In Progress",
       assignee: "Jane Doe",
       description: "Users are redirected to login instead of dashboard.",
+      issueType: "Bug",
     });
   });
 
