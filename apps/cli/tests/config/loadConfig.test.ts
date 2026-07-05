@@ -88,9 +88,9 @@ describe("loadConfig", () => {
       loadConfig.pipe(Effect.provide(testLayer())),
     );
 
-    expect(config.branchTemplate).toBe("{key}-{slug}");
-    expect(config.baseBranches).toEqual([]);
-    expect(config.startTransitionStatus).toBeUndefined();
+    expect(config.branchPattern).toBe("{key}-{slug}");
+    expect(config.sourceBranches).toEqual([]);
+    expect(config.startStatus).toBeUndefined();
   });
 
   test("project config overrides global config field by field", async () => {
@@ -98,11 +98,11 @@ describe("loadConfig", () => {
     mkdirSync(globalDir, { recursive: true });
     writeFileSync(
       join(globalDir, "config.json"),
-      JSON.stringify({ git: { baseBranches: ["main", "develop"] } }),
+      JSON.stringify({ work: { sourceBranches: ["main", "develop"] } }),
     );
     writeFileSync(
       join(repoDir, "mono.config.json"),
-      JSON.stringify({ jira: { startTransitionStatus: "In Progress" } }),
+      JSON.stringify({ work: { startStatus: "In Progress" } }),
     );
     process.chdir(repoDir);
 
@@ -110,8 +110,8 @@ describe("loadConfig", () => {
       loadConfig.pipe(Effect.provide(testLayer())),
     );
 
-    expect(config.baseBranches).toEqual(["main", "develop"]);
-    expect(config.startTransitionStatus).toBe("In Progress");
+    expect(config.sourceBranches).toEqual(["main", "develop"]);
+    expect(config.startStatus).toBe("In Progress");
   });
 
   test("project's field wins outright over global's on conflict", async () => {
@@ -119,11 +119,11 @@ describe("loadConfig", () => {
     mkdirSync(globalDir, { recursive: true });
     writeFileSync(
       join(globalDir, "config.json"),
-      JSON.stringify({ git: { baseBranches: ["main"] } }),
+      JSON.stringify({ work: { sourceBranches: ["main"] } }),
     );
     writeFileSync(
       join(repoDir, "mono.config.json"),
-      JSON.stringify({ git: { baseBranches: ["develop"] } }),
+      JSON.stringify({ work: { sourceBranches: ["develop"] } }),
     );
     process.chdir(repoDir);
 
@@ -131,7 +131,7 @@ describe("loadConfig", () => {
       loadConfig.pipe(Effect.provide(testLayer())),
     );
 
-    expect(config.baseBranches).toEqual(["develop"]);
+    expect(config.sourceBranches).toEqual(["develop"]);
   });
 
   test("fails clearly on invalid JSON in the project config", async () => {
