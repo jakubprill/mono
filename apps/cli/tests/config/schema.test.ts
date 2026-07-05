@@ -23,7 +23,7 @@ const collectRefs = (
 };
 
 describe("MonoConfig JSON Schema", () => {
-  test("generates an object schema with git and jira properties", () => {
+  test("generates an object schema with a work property", () => {
     const doc = Schema.toJsonSchemaDocument(MonoConfig, {
       additionalProperties: true,
     });
@@ -31,7 +31,7 @@ describe("MonoConfig JSON Schema", () => {
     expect(monoConfigDef.type).toBe("object");
     const properties = monoConfigDef.properties as Record<string, unknown>;
     expect(Object.keys(properties)).toEqual(
-      expect.arrayContaining(["git", "jira", "$schema"]),
+      expect.arrayContaining(["work", "$schema"]),
     );
   });
 
@@ -44,8 +44,7 @@ describe("MonoConfig JSON Schema", () => {
     expect(written.$defs).toBeDefined();
     const defs = written.$defs as Record<string, unknown>;
     expect(defs.MonoConfig).toBeDefined();
-    expect(defs.GitConfig).toBeDefined();
-    expect(defs.JiraWorkConfig).toBeDefined();
+    expect(defs.WorkConfig).toBeDefined();
 
     // Every $ref found in the written document must resolve to an entry
     // under its own $defs (refs are of the form "#/$defs/<name>").
