@@ -28,27 +28,26 @@ Both files share the same shape:
 ```json
 {
   "$schema": "./.mono/schema.json",
-  "git": {
-    "baseBranches": ["main", "develop"],
-    "branchTemplate": "{type}/{key}-{slug}",
-    "issueTypeAliases": { "Bug": "fix", "Story": "feat" }
-  },
-  "jira": {
-    "startTransitionStatus": "In Progress"
+  "work": {
+    "sourceBranches": ["main", "develop"],
+    "branchPattern": "{type}/{key}-{slug}",
+    "branchTypeAliases": { "Bug": "fix", "Story": "feat" },
+    "startStatus": "In Progress"
   }
 }
 ```
 
-- `git.baseBranches` — if non-empty, `work start` prompts you to pick one
+- `work.sourceBranches` — if non-empty, `work start` prompts you to pick one
   instead of defaulting to the remote's default branch. Ignored when
   `--source`/`-s` is passed.
-- `git.branchTemplate` — placeholders: `{type}` (resolved via
-  `issueTypeAliases`, falling back to the Jira issue type name),
+- `work.branchPattern` — placeholders: `{type}` (resolved via
+  `branchTypeAliases`, falling back to the Jira issue type name),
   `{key}` (the Jira issue key), `{slug}` (slugified issue summary).
-- `git.issueTypeAliases` — maps a Jira issue type name to the `{type}` token.
-- `jira.startTransitionStatus` — if set, `work start` transitions the issue
-  to this status name after creating the branch (skipped with a warning if
-  no matching transition exists).
+- `work.branchTypeAliases` — maps a Jira issue type name to the `{type}`
+  token in `branchPattern`.
+- `work.startStatus` — if set, `work start` transitions the issue to this
+  status name after creating the branch (skipped with a warning if no
+  matching transition exists).
 
 Run `mono-cli config schema` to generate a schema file and reference it via
 `$schema` for editor autocomplete.
