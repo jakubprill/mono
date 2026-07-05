@@ -116,11 +116,11 @@ describe("startWork", () => {
     expect(result).toBe("Created PROJ-1-fix-login-redirect-loop from main");
   });
 
-  test("prompts for a base branch when config.baseBranches is non-empty, and creates the branch from the selected choice", async () => {
+  test("prompts for a base branch when config.sourceBranches is non-empty, and creates the branch from the selected choice", async () => {
     const created: Array<[string, string]> = [];
     const config = {
       ...defaultConfig,
-      baseBranches: ["main", "develop", "staging"],
+      sourceBranches: ["main", "develop", "staging"],
     };
 
     // Script: one "down" (moves the highlighted choice from "main" to
@@ -152,7 +152,7 @@ describe("startWork", () => {
 
   test("transitions the issue when a matching status is configured", async () => {
     const transitioned: Array<[string, string]> = [];
-    const config = { ...defaultConfig, startTransitionStatus: "In Progress" };
+    const config = { ...defaultConfig, startStatus: "In Progress" };
     const transitions = [
       new Transition({
         id: "21",
@@ -181,7 +181,7 @@ describe("startWork", () => {
   });
 
   test("still creates the branch when no transition matches the configured status", async () => {
-    const config = { ...defaultConfig, startTransitionStatus: "In Progress" };
+    const config = { ...defaultConfig, startStatus: "In Progress" };
 
     const result = await Effect.runPromise(
       startWork("PROJ-1", "develop", config).pipe(

@@ -1,57 +1,51 @@
 import { Schema } from "effect";
 
-export class GitConfig extends Schema.Class<GitConfig>("GitConfig")({
-  baseBranches: Schema.optional(Schema.Array(Schema.String)),
-  branchTemplate: Schema.optional(Schema.String),
-  issueTypeAliases: Schema.optional(
+export class WorkConfig extends Schema.Class<WorkConfig>("WorkConfig")({
+  sourceBranches: Schema.optional(Schema.Array(Schema.String)),
+  branchPattern: Schema.optional(Schema.String),
+  branchTypeAliases: Schema.optional(
     Schema.Record(Schema.String, Schema.String),
   ),
-}) {}
-
-export class JiraWorkConfig extends Schema.Class<JiraWorkConfig>(
-  "JiraWorkConfig",
-)({
-  startTransitionStatus: Schema.optional(Schema.String),
+  startStatus: Schema.optional(Schema.String),
 }) {}
 
 export class MonoConfig extends Schema.Class<MonoConfig>("MonoConfig")({
   $schema: Schema.optional(Schema.String),
-  git: Schema.optional(GitConfig),
-  jira: Schema.optional(JiraWorkConfig),
+  work: Schema.optional(WorkConfig),
 }) {}
 
 export interface ResolvedConfig {
-  readonly baseBranches: ReadonlyArray<string>;
-  readonly branchTemplate: string;
-  readonly issueTypeAliases: Readonly<Record<string, string>>;
-  readonly startTransitionStatus: string | undefined;
+  readonly sourceBranches: ReadonlyArray<string>;
+  readonly branchPattern: string;
+  readonly branchTypeAliases: Readonly<Record<string, string>>;
+  readonly startStatus: string | undefined;
 }
 
 export const defaultConfig: ResolvedConfig = {
-  baseBranches: [],
-  branchTemplate: "{key}-{slug}",
-  issueTypeAliases: {},
-  startTransitionStatus: undefined,
+  sourceBranches: [],
+  branchPattern: "{key}-{slug}",
+  branchTypeAliases: {},
+  startStatus: undefined,
 };
 
 export const mergeConfig = (
   global: MonoConfig | undefined,
   project: MonoConfig | undefined,
 ): ResolvedConfig => ({
-  baseBranches:
-    project?.git?.baseBranches ??
-    global?.git?.baseBranches ??
-    defaultConfig.baseBranches,
-  branchTemplate:
-    project?.git?.branchTemplate ??
-    global?.git?.branchTemplate ??
-    defaultConfig.branchTemplate,
-  issueTypeAliases:
-    project?.git?.issueTypeAliases ??
-    global?.git?.issueTypeAliases ??
-    defaultConfig.issueTypeAliases,
-  startTransitionStatus:
-    project?.jira?.startTransitionStatus ??
-    global?.jira?.startTransitionStatus ??
-    defaultConfig.startTransitionStatus,
+  sourceBranches:
+    project?.work?.sourceBranches ??
+    global?.work?.sourceBranches ??
+    defaultConfig.sourceBranches,
+  branchPattern:
+    project?.work?.branchPattern ??
+    global?.work?.branchPattern ??
+    defaultConfig.branchPattern,
+  branchTypeAliases:
+    project?.work?.branchTypeAliases ??
+    global?.work?.branchTypeAliases ??
+    defaultConfig.branchTypeAliases,
+  startStatus:
+    project?.work?.startStatus ??
+    global?.work?.startStatus ??
+    defaultConfig.startStatus,
 });

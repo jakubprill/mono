@@ -20,11 +20,11 @@ export const startWork = (
 
     const base = sourceOverride
       ? sourceOverride
-      : config.baseBranches.length > 0
+      : config.sourceBranches.length > 0
         ? yield* Prompt.run(
             Prompt.select({
               message: "Base branch:",
-              choices: config.baseBranches.map((branch) => ({
+              choices: config.sourceBranches.map((branch) => ({
                 title: branch,
                 value: branch,
               })),
@@ -32,27 +32,25 @@ export const startWork = (
           )
         : yield* git.defaultRemoteBranch;
 
-    const branchName = renderBranchName(config.branchTemplate, {
-      type: resolveBranchType(issue.issueType, config.issueTypeAliases),
+    const branchName = renderBranchName(config.branchPattern, {
+      type: resolveBranchType(issue.issueType, config.branchTypeAliases),
       key,
       slug: slugify(issue.summary),
     });
 
     yield* git.createBranch(branchName, base);
 
-    if (config.startTransitionStatus === undefined) {
+    if (config.startStatus === undefined) {
       return `Created ${branchName} from ${base}`;
     }
 
     const transitions = yield* jira.getTransitions(key);
-    const target = transitions.find(
-      (t) => t.toStatus === config.startTransitionStatus,
-    );
+    const target = transitions.find((t) => t.toStatus === config.startStatus);
 
     if (target === undefined) {
       const available = transitions.map((t) => t.toStatus).join(", ") || "none";
       yield* Console.error(
-        `No transition to "${config.startTransitionStatus}" for ${key}. Available: ${available}`,
+        `No transition to "${config.startStatus}" for ${key}. Available: ${available}`,
       );
       return `Created ${branchName} from ${base}`;
     }

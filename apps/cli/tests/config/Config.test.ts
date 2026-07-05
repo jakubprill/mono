@@ -11,28 +11,27 @@ const decode = (json: unknown) => Schema.decodeUnknownSync(MonoConfig)(json);
 describe("MonoConfig", () => {
   test("decodes an empty object to all-optional-absent", () => {
     const config = decode({});
-    expect(config.git).toBeUndefined();
-    expect(config.jira).toBeUndefined();
+    expect(config.work).toBeUndefined();
   });
 
   test("decodes a fully-populated config", () => {
     const config = decode({
-      git: {
-        baseBranches: ["main", "develop"],
-        branchTemplate: "{type}/{key}-{slug}",
-        issueTypeAliases: { Bug: "bugfix" },
+      work: {
+        sourceBranches: ["main", "develop"],
+        branchPattern: "{type}/{key}-{slug}",
+        branchTypeAliases: { Bug: "bugfix" },
+        startStatus: "In Progress",
       },
-      jira: { startTransitionStatus: "In Progress" },
     });
-    expect(config.git?.baseBranches).toEqual(["main", "develop"]);
-    expect(config.git?.branchTemplate).toBe("{type}/{key}-{slug}");
-    expect(config.git?.issueTypeAliases).toEqual({ Bug: "bugfix" });
-    expect(config.jira?.startTransitionStatus).toBe("In Progress");
+    expect(config.work?.sourceBranches).toEqual(["main", "develop"]);
+    expect(config.work?.branchPattern).toBe("{type}/{key}-{slug}");
+    expect(config.work?.branchTypeAliases).toEqual({ Bug: "bugfix" });
+    expect(config.work?.startStatus).toBe("In Progress");
   });
 
   test("ignores the $schema field", () => {
     const config = decode({ $schema: "./.mono/schema.json" });
-    expect(config.git).toBeUndefined();
+    expect(config.work).toBeUndefined();
   });
 });
 
@@ -42,23 +41,23 @@ describe("mergeConfig", () => {
   });
 
   test("project field wins over global on the same field", () => {
-    const global = decode({ git: { baseBranches: ["main"] } });
-    const project = decode({ git: { baseBranches: ["develop"] } });
-    expect(mergeConfig(global, project).baseBranches).toEqual(["develop"]);
+    const global = decode({ work: { sourceBranches: ["main"] } });
+    const project = decode({ work: { sourceBranches: ["develop"] } });
+    expect(mergeConfig(global, project).sourceBranches).toEqual(["develop"]);
   });
 
   test("non-conflicting fields from both global and project apply", () => {
-    const global = decode({ git: { baseBranches: ["main"] } });
-    const project = decode({ jira: { startTransitionStatus: "In Progress" } });
+    const global = decode({ work: { sourceBranches: ["main"] } });
+    const project = decode({ work: { startStatus: "In Progress" } });
     const merged = mergeConfig(global, project);
-    expect(merged.baseBranches).toEqual(["main"]);
-    expect(merged.startTransitionStatus).toBe("In Progress");
+    expect(merged.sourceBranches).toEqual(["main"]);
+    expect(merged.startStatus).toBe("In Progress");
   });
 
-  test("falls back to defaultConfig.branchTemplate when neither sets it", () => {
-    const project = decode({ jira: { startTransitionStatus: "Done" } });
-    expect(mergeConfig(undefined, project).branchTemplate).toBe(
-      defaultConfig.branchTemplate,
+  test("falls back to defaultConfig.branchPattern when neither sets it", () => {
+    const project = decode({ work: { startStatus: "Done" } });
+    expect(mergeConfig(undefined, project).branchPattern).toBe(
+      defaultConfig.branchPattern,
     );
   });
 });
