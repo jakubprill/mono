@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { GitClient } from "@mono/git";
-import { Effect, FileSystem, Option, Path, Schema } from "effect";
+import { Config, Effect, FileSystem, Option, Path, Schema } from "effect";
 import { MonoConfig, mergeConfig, type ResolvedConfig } from "./Config.ts";
 import { ConfigError } from "./errors.ts";
 
@@ -34,11 +34,20 @@ const readAndDecode = (
     );
   });
 
-const globalConfigPath = (path: Path.Path): string => {
-  const configHome =
-    process.env["XDG_CONFIG_HOME"] ?? path.join(homedir(), ".config");
-  return path.join(configHome, "mono", "config.json");
-};
+const globalConfigPath = (
+  path: Path.Path,
+): Effect.Effect<string, ConfigError> =>
+  Config.string("XDG_CONFIG_HOME").pipe(
+    Config.withDefault(path.join(homedir(), ".config")),
+    Effect.mapError(
+      (error) =>
+        new ConfigError({
+          filePath: "XDG_CONFIG_HOME",
+          message: String(error),
+        }),
+    ),
+    Effect.map((configHome) => path.join(configHome, "mono", "config.json")),
+  );
 
 export const findProjectConfigPath = (
   cwd: string,
@@ -78,7 +87,7 @@ export const loadConfig: Effect.Effect<
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const global = yield* readAndDecode(fs, globalConfigPath(path));
+  const global = yield* readAndDecode(fs, yield* globalConfigPath(path));
 
   const projectPath = yield* findProjectConfigPath(process.cwd());
   const project = yield* Option.match(projectPath, {

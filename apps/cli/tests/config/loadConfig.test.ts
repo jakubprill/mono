@@ -6,7 +6,7 @@ import * as BunChildProcessSpawner from "@effect/platform-bun/BunChildProcessSpa
 import * as BunFileSystem from "@effect/platform-bun/BunFileSystem";
 import * as BunPath from "@effect/platform-bun/BunPath";
 import { GitClient } from "@mono/git";
-import { Effect, Layer, Option } from "effect";
+import { ConfigProvider, Effect, Layer, Option } from "effect";
 import {
   findProjectConfigPath,
   loadConfig,
@@ -18,30 +18,30 @@ const gitLayer = GitClient.layer.pipe(
   Layer.provide(BunPath.layer),
 );
 
-const testLayer = Layer.mergeAll(gitLayer, BunFileSystem.layer, BunPath.layer);
-
 let repoDir: string;
 let originalCwd: string;
-let originalXdgConfigHome: string | undefined;
+let xdgConfigHome: string;
+
+const testLayer = () =>
+  Layer.mergeAll(
+    gitLayer,
+    BunFileSystem.layer,
+    BunPath.layer,
+    ConfigProvider.layer(
+      ConfigProvider.fromUnknown({ XDG_CONFIG_HOME: xdgConfigHome }),
+    ),
+  );
 
 beforeEach(async () => {
   repoDir = mkdtempSync(join(tmpdir(), "mono-config-test-"));
   await Bun.$`git init -q -b main`.cwd(repoDir).quiet();
   originalCwd = process.cwd();
-  originalXdgConfigHome = process.env["XDG_CONFIG_HOME"];
-  process.env["XDG_CONFIG_HOME"] = mkdtempSync(
-    join(tmpdir(), "mono-xdg-test-"),
-  );
+  xdgConfigHome = mkdtempSync(join(tmpdir(), "mono-xdg-test-"));
 });
 
 afterEach(() => {
   process.chdir(originalCwd);
   rmSync(repoDir, { recursive: true, force: true });
-  if (originalXdgConfigHome === undefined) {
-    delete process.env["XDG_CONFIG_HOME"];
-  } else {
-    process.env["XDG_CONFIG_HOME"] = originalXdgConfigHome;
-  }
 });
 
 describe("findProjectConfigPath", () => {
@@ -50,7 +50,7 @@ describe("findProjectConfigPath", () => {
     process.chdir(repoDir);
 
     const result = await Effect.runPromise(
-      findProjectConfigPath(repoDir).pipe(Effect.provide(testLayer)),
+      findProjectConfigPath(repoDir).pipe(Effect.provide(testLayer())),
     );
 
     expect(Option.isSome(result)).toBe(true);
@@ -63,7 +63,7 @@ describe("findProjectConfigPath", () => {
     process.chdir(subDir);
 
     const result = await Effect.runPromise(
-      findProjectConfigPath(subDir).pipe(Effect.provide(testLayer)),
+      findProjectConfigPath(subDir).pipe(Effect.provide(testLayer())),
     );
 
     expect(Option.isSome(result)).toBe(true);
@@ -73,7 +73,7 @@ describe("findProjectConfigPath", () => {
     process.chdir(repoDir);
 
     const result = await Effect.runPromise(
-      findProjectConfigPath(repoDir).pipe(Effect.provide(testLayer)),
+      findProjectConfigPath(repoDir).pipe(Effect.provide(testLayer())),
     );
 
     expect(Option.isNone(result)).toBe(true);
@@ -85,7 +85,7 @@ describe("loadConfig", () => {
     process.chdir(repoDir);
 
     const config = await Effect.runPromise(
-      loadConfig.pipe(Effect.provide(testLayer)),
+      loadConfig.pipe(Effect.provide(testLayer())),
     );
 
     expect(config.branchTemplate).toBe("{key}-{slug}");
@@ -94,7 +94,7 @@ describe("loadConfig", () => {
   });
 
   test("project config overrides global config field by field", async () => {
-    const globalDir = join(process.env["XDG_CONFIG_HOME"]!, "mono");
+    const globalDir = join(xdgConfigHome, "mono");
     mkdirSync(globalDir, { recursive: true });
     writeFileSync(
       join(globalDir, "config.json"),
@@ -107,7 +107,7 @@ describe("loadConfig", () => {
     process.chdir(repoDir);
 
     const config = await Effect.runPromise(
-      loadConfig.pipe(Effect.provide(testLayer)),
+      loadConfig.pipe(Effect.provide(testLayer())),
     );
 
     expect(config.baseBranches).toEqual(["main", "develop"]);
@@ -115,7 +115,7 @@ describe("loadConfig", () => {
   });
 
   test("project's field wins outright over global's on conflict", async () => {
-    const globalDir = join(process.env["XDG_CONFIG_HOME"]!, "mono");
+    const globalDir = join(xdgConfigHome, "mono");
     mkdirSync(globalDir, { recursive: true });
     writeFileSync(
       join(globalDir, "config.json"),
@@ -128,7 +128,7 @@ describe("loadConfig", () => {
     process.chdir(repoDir);
 
     const config = await Effect.runPromise(
-      loadConfig.pipe(Effect.provide(testLayer)),
+      loadConfig.pipe(Effect.provide(testLayer())),
     );
 
     expect(config.baseBranches).toEqual(["develop"]);
@@ -139,7 +139,7 @@ describe("loadConfig", () => {
     process.chdir(repoDir);
 
     const failure = await Effect.runPromise(
-      loadConfig.pipe(Effect.flip, Effect.provide(testLayer)),
+      loadConfig.pipe(Effect.flip, Effect.provide(testLayer())),
     );
 
     expect(failure._tag).toBe("ConfigError");
