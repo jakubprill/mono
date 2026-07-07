@@ -26,7 +26,7 @@ export const viewCommand = Command.make(
         reportAndFail(`Issue not found: ${e.key}`, e),
       ),
       Effect.catchTag("JiraAuthError", (e) =>
-        reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_TOKEN", e),
+        reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN", e),
       ),
       Effect.catchTag("JiraHttpError", (e) =>
         reportAndFail(`Jira request failed: ${String(e.error)}`, e),

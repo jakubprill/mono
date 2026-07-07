@@ -14,7 +14,7 @@ export class JiraConfig extends Context.Service<
       const baseUrl = yield* Config.string("JIRA_BASE_URL").pipe(
         Config.map((url) => url.replace(/\/+$/, "")),
       );
-      const token = yield* Config.redacted("JIRA_TOKEN");
+      const token = yield* Config.redacted("JIRA_API_TOKEN");
       return { baseUrl, token };
     }),
   );

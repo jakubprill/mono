@@ -26,7 +26,7 @@ discussion); everything else in that blueprint is out of scope for now.
 ```
 packages/jira/                  @mono/jira
   src/
-    JiraConfig.ts                Config service: JIRA_BASE_URL, JIRA_TOKEN
+    JiraConfig.ts                Config service: JIRA_BASE_URL, JIRA_API_TOKEN
     JiraClient.ts                Service: getIssue(key) -> Effect<Issue, JiraError>
     Issue.ts                     Schema.Class domain model + toMarkdown()
     errors.ts                    IssueNotFoundError, JiraAuthError, JiraHttpError
@@ -46,7 +46,7 @@ mono jira show PROJ-123
   → CLI parses key + --format
   → JiraClient.getIssue("PROJ-123")
   → GET {JIRA_BASE_URL}/rest/api/2/issue/PROJ-123
-      Authorization: Bearer {JIRA_TOKEN}
+      Authorization: Bearer {JIRA_API_TOKEN}
       ?fields=summary,status,assignee,description
   → parse response into Issue (Schema)
   → render: markdown (default) or JSON (--format json)
@@ -109,7 +109,7 @@ class JiraConfig extends Context.Service<JiraConfig, {
 }>()("@mono/JiraConfig") {
   static readonly layer = Layer.effect(JiraConfig, Effect.gen(function* () {
     const baseUrl = yield* Config.string("JIRA_BASE_URL")
-    const token = yield* Config.redacted("JIRA_TOKEN")
+    const token = yield* Config.redacted("JIRA_API_TOKEN")
     return { baseUrl, token }
   }))
 
@@ -154,7 +154,7 @@ const showCommand = Command.make("show", { key, format }, ({ key, format }) =>
     }
   }).pipe(
     Effect.catchTag("IssueNotFoundError", (e) => Console.error(`Issue not found: ${e.key}`)),
-    Effect.catchTag("JiraAuthError", () => Console.error("Auth error — check JIRA_BASE_URL and JIRA_TOKEN")),
+    Effect.catchTag("JiraAuthError", () => Console.error("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN")),
     Effect.catchTag("JiraHttpError", (e) => Console.error(`Jira request failed: ${e.error}`)),
   )
 )
@@ -177,7 +177,7 @@ the existing `BunServices.layer`.
 ## Configuration
 
 - `JIRA_BASE_URL` — e.g. `https://jira.company.internal`
-- `JIRA_TOKEN` — Personal Access Token (Bearer), Jira Server/DC 8.14+
+- `JIRA_API_TOKEN` — Personal Access Token (Bearer), Jira Server/DC 8.14+
 
 Both read via Bun's automatic `.env` loading (no `dotenv` dependency).
 

@@ -9,7 +9,7 @@ describe("JiraConfig", () => {
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
             JIRA_BASE_URL: "https://jira.example.com",
-            JIRA_TOKEN: "secret-token",
+            JIRA_API_TOKEN: "secret-token",
           }),
         ),
       ),
@@ -28,7 +28,7 @@ describe("JiraConfig", () => {
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
             JIRA_BASE_URL: "https://jira.example.com/",
-            JIRA_TOKEN: "secret-token",
+            JIRA_API_TOKEN: "secret-token",
           }),
         ),
       ),
