@@ -4,15 +4,15 @@
 
 **Goal:** Fetch a Jira Server/Data Center issue by key and print it, via a reusable `@mono/jira` package and a `mono jira show <key>` CLI command.
 
-**Architecture:** `packages/jira` exposes an Effect `JiraClient` service (`getIssue(key)`) backed by `HttpClient.HttpClient` + a `JiraConfig` service reading `JIRA_BASE_URL`/`JIRA_TOKEN` from env. `apps/cli` wires those into a new `jira show` subcommand that renders the result as markdown (default) or JSON.
+**Architecture:** `packages/jira` exposes an Effect `JiraClient` service (`getIssue(key)`) backed by `HttpClient.HttpClient` + a `JiraConfig` service reading `JIRA_BASE_URL`/`JIRA_API_TOKEN` from env. `apps/cli` wires those into a new `jira show` subcommand that renders the result as markdown (default) or JSON.
 
 **Tech Stack:** Effect 4.0.0-beta.93 (`Context.Service`, `Layer`, `Schema`, `effect/unstable/cli`, `effect/unstable/http`), Bun, `@effect/vitest` for `packages/jira` tests, `bun:test` for the CLI's pure-function test.
 
 ## Global Constraints
 
 - Effect version: `4.0.0-beta.93` for `effect`, `@effect/platform-bun`, `@effect/vitest` — always resolve via the `catalog:effect` protocol in `package.json`, never a hardcoded version.
-- Jira API: Server/Data Center only, API v2 (`/rest/api/2/issue/{key}`), auth via `Authorization: Bearer <JIRA_TOKEN>` (Personal Access Token).
-- Config: `JIRA_BASE_URL` and `JIRA_TOKEN` read from environment variables only (Bun auto-loads `.env`; no `dotenv` dependency, no config file, no CLI flags for credentials).
+- Jira API: Server/Data Center only, API v2 (`/rest/api/2/issue/{key}`), auth via `Authorization: Bearer <JIRA_API_TOKEN>` (Personal Access Token).
+- Config: `JIRA_BASE_URL` and `JIRA_API_TOKEN` read from environment variables only (Bun auto-loads `.env`; no `dotenv` dependency, no config file, no CLI flags for credentials).
 - Fields in scope: `key`, `summary`, `status`, `assignee` (nullable), `description` (nullable). No comments, no search/list, no write operations.
 - CLI command shape: `mono jira show <key> [--format markdown|json]`, default format `markdown`.
 - `packages/jira` has no dependency on `@effect/platform-bun` or Bun-specific APIs — it depends only on `effect`, so it stays runtime-agnostic.
@@ -361,7 +361,7 @@ git commit -m "feat(jira): add Issue domain model with markdown rendering"
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: `JiraConfig` — a `Context.Service` exposing `{ baseUrl: string; token: Redacted.Redacted }`, with `JiraConfig.layer` (reads `JIRA_BASE_URL`/`JIRA_TOKEN` from env via `Config`) and `JiraConfig.testLayer` (fixed values: `baseUrl: "https://jira.test"`, `token: Redacted.make("test-token")`). Task 4 depends on `JiraConfig`, `JiraConfig.layer`, `JiraConfig.testLayer`.
+- Produces: `JiraConfig` — a `Context.Service` exposing `{ baseUrl: string; token: Redacted.Redacted }`, with `JiraConfig.layer` (reads `JIRA_BASE_URL`/`JIRA_API_TOKEN` from env via `Config`) and `JiraConfig.testLayer` (fixed values: `baseUrl: "https://jira.test"`, `token: Redacted.make("test-token")`). Task 4 depends on `JiraConfig`, `JiraConfig.layer`, `JiraConfig.testLayer`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -379,7 +379,7 @@ describe("JiraConfig", () => {
         ConfigProvider.layer(
           ConfigProvider.fromUnknown({
             JIRA_BASE_URL: "https://jira.example.com",
-            JIRA_TOKEN: "secret-token",
+            JIRA_API_TOKEN: "secret-token",
           }),
         ),
       ),
@@ -426,7 +426,7 @@ export class JiraConfig extends Context.Service<
     JiraConfig,
     Effect.gen(function* () {
       const baseUrl = yield* Config.string("JIRA_BASE_URL")
-      const token = yield* Config.redacted("JIRA_TOKEN")
+      const token = yield* Config.redacted("JIRA_API_TOKEN")
       return { baseUrl, token }
     }),
   )
@@ -452,7 +452,7 @@ Expected: both succeed with no errors.
 
 ```bash
 git add packages/jira/src/JiraConfig.ts packages/jira/tests/JiraConfig.test.ts
-git commit -m "feat(jira): add JiraConfig service reading JIRA_BASE_URL/JIRA_TOKEN"
+git commit -m "feat(jira): add JiraConfig service reading JIRA_BASE_URL/JIRA_API_TOKEN"
 ```
 
 ---
@@ -815,7 +815,7 @@ const showCommand = Command.make("show", { key, format }, ({ key, format }) =>
   }).pipe(
     Effect.catchTag("IssueNotFoundError", (e) => Console.error(`Issue not found: ${e.key}`)),
     Effect.catchTag("JiraAuthError", () =>
-      Console.error("Auth error — check JIRA_BASE_URL and JIRA_TOKEN"),
+      Console.error("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN"),
     ),
     Effect.catchTag("JiraHttpError", (e) => Console.error(`Jira request failed: ${String(e.error)}`)),
   ),
@@ -880,27 +880,27 @@ Expected: `@mono/jira` and `@mono/cli` both report all tests passing (14 tests a
 
 Run:
 ```bash
-JIRA_BASE_URL=https://<your-jira-host> JIRA_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY>
+JIRA_BASE_URL=https://<your-jira-host> JIRA_API_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY>
 ```
 Expected: markdown output with the issue key, summary, status, assignee, and description.
 
 Run:
 ```bash
-JIRA_BASE_URL=https://<your-jira-host> JIRA_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY> --format json
+JIRA_BASE_URL=https://<your-jira-host> JIRA_API_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY> --format json
 ```
 Expected: pretty-printed JSON with the same fields.
 
 Run:
 ```bash
-JIRA_BASE_URL=https://<your-jira-host> JIRA_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show DOES-NOT-EXIST
+JIRA_BASE_URL=https://<your-jira-host> JIRA_API_TOKEN=<your-PAT> bun run --filter=@mono/cli dev -- jira show DOES-NOT-EXIST
 ```
 Expected: `Issue not found: DOES-NOT-EXIST` printed to stderr, non-zero exit code.
 
 Run:
 ```bash
-JIRA_BASE_URL=https://<your-jira-host> JIRA_TOKEN=invalid-token bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY>
+JIRA_BASE_URL=https://<your-jira-host> JIRA_API_TOKEN=invalid-token bun run --filter=@mono/cli dev -- jira show <REAL-ISSUE-KEY>
 ```
-Expected: `Auth error — check JIRA_BASE_URL and JIRA_TOKEN` printed to stderr, non-zero exit code.
+Expected: `Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN` printed to stderr, non-zero exit code.
 
 - [ ] **Step 6: Commit**
 
@@ -916,7 +916,7 @@ git commit -m "feat(cli): add mono jira show command"
 **Spec coverage:**
 - Package `@mono/jira` with `JiraConfig`, `JiraClient`, `Issue`, errors → Tasks 1–4.
 - CLI `mono jira show <key> [--format]` → Tasks 5–6.
-- Env-var config (`JIRA_BASE_URL`, `JIRA_TOKEN`), Bearer auth, API v2 → Task 3, Task 4 Step 3.
+- Env-var config (`JIRA_BASE_URL`, `JIRA_API_TOKEN`), Bearer auth, API v2 → Task 3, Task 4 Step 3.
 - Core fields (key, summary, status, assignee, description) → Task 2.
 - Markdown default / JSON via `--format` → Task 5, Task 6 Step 1.
 - Error handling (404, 401/403, other) → Task 1 (errors), Task 4 (mapping + tests), Task 6 (CLI messages).

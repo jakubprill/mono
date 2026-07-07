@@ -1620,7 +1620,7 @@ export const startCommand = Command.make("start", { key, source }, ({ key, sourc
       reportAndFail(`Issue not found: ${e.key}`, e),
     ),
     Effect.catchTag("JiraAuthError", (e) =>
-      reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_TOKEN", e),
+      reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN", e),
     ),
     Effect.catchTag("JiraHttpError", (e) =>
       reportAndFail(`Jira request failed: ${String(e.error)}`, e),
@@ -1704,7 +1704,7 @@ Note: the interactive base-branch prompt path (when `config.baseBranches` is non
 Run: `cd apps/cli && bun run src/index.ts work start --help`
 Expected: shows `start <key> [--source|-s <text>]` usage.
 
-If you have `JIRA_BASE_URL`/`JIRA_TOKEN` set for a real (or test) Jira instance, run `bun run src/index.ts work start <a real key>` once with a `mono.config.json` containing a non-empty `git.baseBranches` list to see the interactive picker, and once with `--source <branch>` to confirm it skips the prompt.
+If you have `JIRA_BASE_URL`/`JIRA_API_TOKEN` set for a real (or test) Jira instance, run `bun run src/index.ts work start <a real key>` once with a `mono.config.json` containing a non-empty `git.baseBranches` list to see the interactive picker, and once with `--source <branch>` to confirm it skips the prompt.
 
 - [ ] **Step 7: Typecheck and lint**
 

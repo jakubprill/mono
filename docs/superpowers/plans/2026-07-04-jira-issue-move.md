@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Effect version: `4.0.0-beta.93` for `effect`/`@effect/platform-bun`/`@effect/vitest` — always via `catalog:effect` in `package.json`, never hardcoded.
-- Jira API: Server/Data Center, API v2 (`/rest/api/2/issue/{key}/transitions`), auth via `Authorization: Bearer <JIRA_TOKEN>`.
+- Jira API: Server/Data Center, API v2 (`/rest/api/2/issue/{key}/transitions`), auth via `Authorization: Bearer <JIRA_API_TOKEN>`.
 - `packages/jira` has no dependency on `@effect/platform-bun` or Bun-specific APIs — stays runtime-agnostic, depends only on `effect`.
 - `packages/jira` tests use `@effect/vitest` (`cd packages/jira && bun run test`); `apps/cli` tests use `bun test` (`cd apps/cli && bun test`).
 - `move` has no non-interactive/scripted mode (no `<status>` argument) — deferred, per spec.
@@ -564,7 +564,7 @@ export const viewCommand = Command.make(
         reportAndFail(`Issue not found: ${e.key}`, e),
       ),
       Effect.catchTag("JiraAuthError", (e) =>
-        reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_TOKEN", e),
+        reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN", e),
       ),
       Effect.catchTag("JiraHttpError", (e) =>
         reportAndFail(`Jira request failed: ${String(e.error)}`, e),
@@ -699,7 +699,7 @@ export const moveCommand = Command.make("move", { key }, ({ key }) =>
       reportAndFail(`Issue not found: ${e.key}`, e),
     ),
     Effect.catchTag("JiraAuthError", (e) =>
-      reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_TOKEN", e),
+      reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN", e),
     ),
     Effect.catchTag("JiraHttpError", (e) =>
       reportAndFail(`Jira request failed: ${String(e.error)}`, e),
@@ -739,7 +739,7 @@ Expected: a "missing argument `key`" error (proves the argument is required and 
 
 - [ ] **Step 5: Manual end-to-end verification against a real Jira instance**
 
-This can't be automated — `Prompt.select` reads real terminal input, and this is explicitly out of scope for unit testing per the design spec. With `JIRA_BASE_URL`/`JIRA_TOKEN` pointing at a real Jira Server/Data Center instance and a real issue key:
+This can't be automated — `Prompt.select` reads real terminal input, and this is explicitly out of scope for unit testing per the design spec. With `JIRA_BASE_URL`/`JIRA_API_TOKEN` pointing at a real Jira Server/Data Center instance and a real issue key:
 
 Run: `cd apps/cli && bun run src/index.ts jira issue move PROJ-123`
 

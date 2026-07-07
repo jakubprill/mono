@@ -62,7 +62,7 @@ interactive picker itself is CLI-only concern and lives in `apps/cli`.
 mono-cli jira issue move PROJ-123
   → JiraClient.getTransitions("PROJ-123")
       GET {baseUrl}/rest/api/2/issue/PROJ-123/transitions
-      Authorization: Bearer {JIRA_TOKEN}
+      Authorization: Bearer {JIRA_API_TOKEN}
   → if empty: print "No transitions available for PROJ-123" and exit 0
   → Prompt.select({
       choices: transitions.map(t => ({
@@ -72,7 +72,7 @@ mono-cli jira issue move PROJ-123
     })
   → JiraClient.transitionIssue("PROJ-123", chosenId)
       POST {baseUrl}/rest/api/2/issue/PROJ-123/transitions
-      Authorization: Bearer {JIRA_TOKEN}
+      Authorization: Bearer {JIRA_API_TOKEN}
       body: { "transition": { "id": chosenId } }
   → print confirmation, e.g. "PROJ-123 → In Progress"
 ```
@@ -162,7 +162,7 @@ const moveCommand = Command.make("move", { key }, ({ key }) =>
     yield* Console.log(`${key} → ${target?.toStatus}`);
   }).pipe(
     Effect.catchTag("IssueNotFoundError", (e) => reportAndFail(`Issue not found: ${e.key}`, e)),
-    Effect.catchTag("JiraAuthError", (e) => reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_TOKEN", e)),
+    Effect.catchTag("JiraAuthError", (e) => reportAndFail("Auth error — check JIRA_BASE_URL and JIRA_API_TOKEN", e)),
     Effect.catchTag("JiraHttpError", (e) => reportAndFail(`Jira request failed: ${String(e.error)}`, e)),
     Effect.provide(jiraLayer),
   ),
@@ -192,7 +192,7 @@ there's no non-interactive output to format.
 
 ## Configuration
 
-Unchanged: `JIRA_BASE_URL`, `JIRA_TOKEN`.
+Unchanged: `JIRA_BASE_URL`, `JIRA_API_TOKEN`.
 
 ## Testing
 
