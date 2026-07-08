@@ -56,6 +56,9 @@ export class GitClient extends Context.Service<
                   }),
                 ),
           ),
+          Effect.withSpan(`git.${args[0] ?? "unknown"}`, {
+            attributes: { "git.args": args.join(" ") },
+          }),
         );
 
       const repoRoot = run(["rev-parse", "--show-toplevel"]);
