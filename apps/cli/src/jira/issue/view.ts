@@ -22,6 +22,9 @@ export const viewCommand = Command.make("view", { key, raw }, ({ key, raw }) =>
       yield* Console.log(issue.toMarkdown());
     }
   }).pipe(
+    Effect.withSpan("jira.issue.view", {
+      attributes: { "jira.issue_key": key },
+    }),
     Effect.catchTag("IssueNotFoundError", (e) =>
       reportAndFail(`Issue not found: ${e.key}`, e),
     ),

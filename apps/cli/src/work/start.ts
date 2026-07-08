@@ -57,7 +57,9 @@ export const startWork = (
 
     yield* jira.transitionIssue(key, target.id);
     return `Created ${branchName} from ${base}, ${key} → ${target.toStatus}`;
-  });
+  }).pipe(
+    Effect.withSpan("work.start", { attributes: { "jira.issue_key": key } }),
+  );
 
 const key = Argument.string("key").pipe(
   Argument.withDescription("Issue key, e.g. PROJ-123"),

@@ -32,6 +32,9 @@ export const moveCommand = Command.make("move", { key }, ({ key }) =>
     const target = transitions.find((t) => t.id === chosenId);
     yield* Console.log(`${key} → ${target?.toStatus}`);
   }).pipe(
+    Effect.withSpan("jira.issue.move", {
+      attributes: { "jira.issue_key": key },
+    }),
     Effect.catchTag("QuitError", () => Console.log("Cancelled.")),
     Effect.catchTag("IssueNotFoundError", (e) =>
       reportAndFail(`Issue not found: ${e.key}`, e),
