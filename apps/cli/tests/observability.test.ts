@@ -22,7 +22,9 @@ const capturingFetch = (): {
  * network so OTLP exports (if any) never leave the process; use
  * `capturingFetch()`'s `urls()` to inspect what was requested. The handler
  * emits a debug log so the OTLP logger has a real signal to flush when the
- * debug layer is active.
+ * debug layer is active, and wraps in a span so the OTLP tracer always has
+ * something to export even when an explicit --log-level filters the debug
+ * log out (tracing is independent of the log level).
  */
 const runDebugTestCommand = (
   args: ReadonlyArray<string>,
@@ -34,7 +36,7 @@ const runDebugTestCommand = (
     Effect.gen(function* () {
       captured.push(yield* References.MinimumLogLevel);
       yield* Effect.logDebug("debug observability test");
-    }),
+    }).pipe(Effect.withSpan("test-command")),
   ).pipe(Command.withGlobalFlags([DebugFlag]), Command.provide(DebugLayer));
 
   const runCommand = Command.runWith(command, { version: "0.0.0" });
@@ -63,5 +65,15 @@ describe("DebugLayer", () => {
     const level = await runDebugTestCommand(["--debug"], mockFetch);
     expect(urls().length).toBeGreaterThan(0);
     expect(level).toBe("Debug");
+  });
+
+  test("with --debug --log-level warn: explicit log level wins, export still happens", async () => {
+    const { fetch: mockFetch, urls } = capturingFetch();
+    const level = await runDebugTestCommand(
+      ["--debug", "--log-level", "warn"],
+      mockFetch,
+    );
+    expect(urls().length).toBeGreaterThan(0);
+    expect(level).toBe("Warn");
   });
 });
