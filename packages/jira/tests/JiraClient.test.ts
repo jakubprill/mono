@@ -135,6 +135,46 @@ describe("JiraClient.getIssue", () => {
   );
 });
 
+describe("JiraClient.getIssueRaw", () => {
+  it.effect("returns the raw response body verbatim", () =>
+    Effect.gen(function* () {
+      const jira = yield* JiraClient;
+      const body = yield* jira.getIssueRaw("PROJ-123");
+      expect(JSON.parse(body)).toEqual(rawIssueJson());
+    }).pipe(Effect.provide(testLayer(jsonFetch(200, rawIssueJson())))),
+  );
+
+  it.effect("maps a 404 response to IssueNotFoundError", () =>
+    Effect.gen(function* () {
+      const jira = yield* JiraClient;
+      const failure = yield* Effect.flip(jira.getIssueRaw("MISSING-1"));
+      expect(failure).toBeInstanceOf(IssueNotFoundError);
+      expect((failure as IssueNotFoundError).key).toBe("MISSING-1");
+    }).pipe(
+      Effect.provide(
+        testLayer(jsonFetch(404, { errorMessages: ["Issue does not exist"] })),
+      ),
+    ),
+  );
+
+  it.effect("maps a 401 response to JiraAuthError", () =>
+    Effect.gen(function* () {
+      const jira = yield* JiraClient;
+      const failure = yield* Effect.flip(jira.getIssueRaw("PROJ-123"));
+      expect(failure).toBeInstanceOf(JiraAuthError);
+      expect((failure as JiraAuthError).status).toBe(401);
+    }).pipe(Effect.provide(testLayer(jsonFetch(401, {})))),
+  );
+
+  it.effect("maps a transport failure to JiraHttpError", () =>
+    Effect.gen(function* () {
+      const jira = yield* JiraClient;
+      const failure = yield* Effect.flip(jira.getIssueRaw("PROJ-123"));
+      expect(failure).toBeInstanceOf(JiraHttpError);
+    }).pipe(Effect.provide(testLayer(failingFetch("network down")))),
+  );
+});
+
 const capturingPostFetch = (
   status: number,
 ): { fetch: typeof fetch; requestedInit: () => RequestInit | undefined } => {

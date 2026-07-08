@@ -40,6 +40,7 @@ export class JiraClient extends Context.Service<
   JiraClient,
   {
     readonly getIssue: (key: string) => Effect.Effect<Issue, JiraError>;
+    readonly getIssueRaw: (key: string) => Effect.Effect<string, JiraError>;
     readonly getTransitions: (
       key: string,
     ) => Effect.Effect<ReadonlyArray<Transition>, JiraError>;
@@ -61,16 +62,29 @@ export class JiraClient extends Context.Service<
         Authorization: `Bearer ${Redacted.value(config.token)}`,
       };
 
+      const fetchIssueResponse = Effect.fn("JiraClient.fetchIssueResponse")(
+        (key: string) =>
+          http.get(
+            `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}`,
+            { headers: authHeaders },
+          ),
+      );
+
       const getIssue = Effect.fn("JiraClient.getIssue")(
         (key: string): Effect.Effect<Issue, JiraError> =>
           Effect.gen(function* () {
-            const response = yield* http.get(
-              `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}`,
-              { headers: authHeaders },
-            );
+            const response = yield* fetchIssueResponse(key);
             const raw =
               yield* HttpClientResponse.schemaBodyJson(RawIssue)(response);
             return toIssue(raw);
+          }).pipe(Effect.catch((error) => mapError(key, error))),
+      );
+
+      const getIssueRaw = Effect.fn("JiraClient.getIssueRaw")(
+        (key: string): Effect.Effect<string, JiraError> =>
+          Effect.gen(function* () {
+            const response = yield* fetchIssueResponse(key);
+            return yield* response.text;
           }).pipe(Effect.catch((error) => mapError(key, error))),
       );
 
@@ -103,7 +117,7 @@ export class JiraClient extends Context.Service<
           }).pipe(Effect.catch((error) => mapError(key, error))),
       );
 
-      return { getIssue, getTransitions, transitionIssue };
+      return { getIssue, getIssueRaw, getTransitions, transitionIssue };
     }),
   );
 }
