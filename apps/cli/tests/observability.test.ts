@@ -30,11 +30,11 @@ const runDebugTestCommand = (
   args: ReadonlyArray<string>,
   mockFetch: typeof fetch,
 ): Promise<string> => {
-  const captured: Array<string> = [];
+  let capturedLevel: string | undefined;
 
   const command = Command.make("test", {}, () =>
     Effect.gen(function* () {
-      captured.push(yield* References.MinimumLogLevel);
+      capturedLevel = yield* References.MinimumLogLevel;
       yield* Effect.logDebug("debug observability test");
     }).pipe(Effect.withSpan("test-command")),
   ).pipe(Command.withGlobalFlags([DebugFlag]), Command.provide(DebugLayer));
@@ -49,7 +49,12 @@ const runDebugTestCommand = (
         ),
       ),
     ),
-  ).then(() => captured[0]!);
+  ).then(() => {
+    if (capturedLevel === undefined) {
+      throw new Error("command handler never ran");
+    }
+    return capturedLevel;
+  });
 };
 
 describe("DebugLayer", () => {
