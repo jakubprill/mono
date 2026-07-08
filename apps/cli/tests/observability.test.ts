@@ -20,7 +20,9 @@ const capturingFetch = (): {
  * Runs a throwaway command wired with DebugFlag/DebugLayer, capturing the
  * MinimumLogLevel the handler observes. `mockFetch` stands in for the
  * network so OTLP exports (if any) never leave the process; use
- * `capturingFetch()`'s `urls()` to inspect what was requested.
+ * `capturingFetch()`'s `urls()` to inspect what was requested. The handler
+ * emits a debug log so the OTLP logger has a real signal to flush when the
+ * debug layer is active.
  */
 const runDebugTestCommand = (
   args: ReadonlyArray<string>,
@@ -31,6 +33,7 @@ const runDebugTestCommand = (
   const command = Command.make("test", {}, () =>
     Effect.gen(function* () {
       captured.push(yield* References.MinimumLogLevel);
+      yield* Effect.logDebug("debug observability test");
     }),
   ).pipe(Command.withGlobalFlags([DebugFlag]), Command.provide(DebugLayer));
 
@@ -53,5 +56,12 @@ describe("DebugLayer", () => {
     const level = await runDebugTestCommand([], mockFetch);
     expect(urls()).toEqual([]);
     expect(level).toBe("Info");
+  });
+
+  test("with --debug: exports to OTLP and raises log level to Debug", async () => {
+    const { fetch: mockFetch, urls } = capturingFetch();
+    const level = await runDebugTestCommand(["--debug"], mockFetch);
+    expect(urls().length).toBeGreaterThan(0);
+    expect(level).toBe("Debug");
   });
 });
