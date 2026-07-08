@@ -67,7 +67,7 @@ const resource = { serviceName: "mono-cli", serviceVersion: CLI_VERSION };
 // dependency at this module's layer-construction time, making it much
 // harder for tests to override — see JiraClient.layer/JiraClient.test.ts
 // for the same externalized-HttpClient pattern already used in this repo.
-export const ObservabilityLayer = Layer.unwrapEffect(
+export const ObservabilityLayer = Layer.unwrap(
   Effect.gen(function* () {
     const endpoint = yield* otlpEndpoint;
     return Layer.merge(
@@ -81,7 +81,7 @@ export const ObservabilityLayer = Layer.unwrapEffect(
 // but only if the user did not explicitly pass --log-level (that always
 // wins, since GlobalFlag.LogLevel is read here and respected). Still
 // requires HttpClient.HttpClient externally, same reasoning as above.
-export const DebugLayer = Layer.unwrapEffect(
+export const DebugLayer = Layer.unwrap(
   Effect.gen(function* () {
     const debug = yield* DebugFlag;
     if (!debug) return Layer.empty;
