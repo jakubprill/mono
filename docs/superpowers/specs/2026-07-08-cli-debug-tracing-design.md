@@ -34,7 +34,6 @@ This targets local development/debugging of `mono-cli` (e.g. `work start`,
 
 ```ts
 import { Config, Effect, Layer, Option, References } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
 import { Flag, GlobalFlag } from "effect/unstable/cli";
 import { OtlpLogger, OtlpSerialization, OtlpTracer } from "effect/unstable/observability";
 
@@ -60,8 +59,15 @@ const otlpEndpoint = Config.string("OTEL_EXPORTER_OTLP_ENDPOINT").pipe(
 
 const resource = { serviceName: "mono-cli", serviceVersion: CLI_VERSION };
 
-// Tracer + Logger only (no metrics).
-const ObservabilityLayer = Layer.unwrapEffect(
+// Tracer + Logger only (no metrics). Requires HttpClient.HttpClient
+// externally (NOT baked in here) so the caller controls the transport —
+// production wires in FetchHttpClient.layer (see index.ts below), tests
+// wire in a stub HttpClient that records requests instead of hitting the
+// network. Baking FetchHttpClient.layer in here would capture its `Fetch`
+// dependency at this module's layer-construction time, making it much
+// harder for tests to override — see JiraClient.layer/JiraClient.test.ts
+// for the same externalized-HttpClient pattern already used in this repo.
+export const ObservabilityLayer = Layer.unwrapEffect(
   Effect.gen(function* () {
     const endpoint = yield* otlpEndpoint;
     return Layer.merge(
@@ -69,14 +75,12 @@ const ObservabilityLayer = Layer.unwrapEffect(
       OtlpLogger.layer({ url: `${endpoint}/v1/logs`, resource }),
     );
   }),
-).pipe(
-  Layer.provide(OtlpSerialization.layerJson),
-  Layer.provide(FetchHttpClient.layer),
-);
+).pipe(Layer.provide(OtlpSerialization.layerJson));
 
 // Active only when --debug is passed. Also raises MinimumLogLevel to Debug,
 // but only if the user did not explicitly pass --log-level (that always
-// wins, since GlobalFlag.LogLevel is read here and respected).
+// wins, since GlobalFlag.LogLevel is read here and respected). Still
+// requires HttpClient.HttpClient externally, same reasoning as above.
 export const DebugLayer = Layer.unwrapEffect(
   Effect.gen(function* () {
     const debug = yield* DebugFlag;
@@ -97,6 +101,8 @@ const cli = Command.make("mono-cli", {}).pipe(
   Command.withSubcommands([greet, jiraCommand, configCommand, workCommand]),
   Command.withGlobalFlags([DebugFlag]),
   Command.provide(DebugLayer),
+  // Satisfies DebugLayer's HttpClient.HttpClient requirement in production.
+  Command.provide(FetchHttpClient.layer),
 );
 
 const program = Command.run(cli, { version: CLI_VERSION }).pipe(
@@ -198,17 +204,27 @@ services:
 
 ## Testing
 
-New test file (e.g. `apps/cli/tests/observability.test.ts`) verifying
-`DebugLayer` wiring using a stub `HttpClient` layer that records requests
-instead of hitting a real network:
+New test file `apps/cli/tests/observability.test.ts` builds a small
+throwaway `Command.make("test", {}, ...)` wired with `DebugFlag`/`DebugLayer`
+(same pattern as the `effect/unstable/cli` test suite for `GlobalFlag`), run
+via `Command.runWith`. `HttpClient.HttpClient` is supplied as
+`FetchHttpClient.layer.pipe(Layer.provide(Layer.succeed(FetchHttpClient.Fetch, mockFetch)))`
+— the exact stubbing pattern already used in
+`packages/jira/tests/JiraClient.test.ts` — so requests never touch the
+network. Because `OtlpExporter` flushes its buffer as a scope finalizer (see
+`OtlpExporter.ts`), the final POST happens as soon as the command's effect
+(and its layer scope) completes — no need to wait out the export interval.
 
-- Without `--debug`: running a simple command (`greet`) makes zero requests
-  to `/v1/traces` or `/v1/logs`.
-- With `--debug`: running `greet` results in at least one request to each
-  of `/v1/traces` and `/v1/logs` (after the export interval elapses, or by
-  triggering shutdown/flush at scope close).
-- With `--debug --log-level info`: `MinimumLogLevel` is **not** overridden
-  to `Debug` (explicit `--log-level` wins).
+- Without `--debug`: running the test command makes zero requests to the
+  mock fetch, and `References.MinimumLogLevel` (read inside the handler)
+  is unchanged (`"Info"`, the framework default).
+- With `--debug`: running the test command results in at least one request
+  captured by the mock fetch (to a `/v1/traces` or `/v1/logs` URL), and
+  `References.MinimumLogLevel` reads as `"Debug"`.
+- With `--debug --log-level warn`: `References.MinimumLogLevel` reads as
+  `"Warn"` (explicit `--log-level` wins over `--debug`'s auto-Debug), while
+  requests are still captured (tracing/log export stays on regardless of
+  console verbosity).
 
 ## Files touched
 
