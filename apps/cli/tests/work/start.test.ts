@@ -23,6 +23,7 @@ const fakeJira = (
 ) =>
   Layer.succeed(JiraClient, {
     getIssue: () => Effect.succeed(issue),
+    getIssueRaw: () => Effect.succeed(""),
     getTransitions: () => Effect.succeed(overrides.transitions ?? []),
     transitionIssue: (key: string, transitionId: string) =>
       Effect.sync(() => {
