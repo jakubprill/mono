@@ -51,3 +51,26 @@ Both files share the same shape:
 
 Run `mono-cli config schema` to generate a schema file and reference it via
 `$schema` for editor autocomplete.
+
+## Debugging / Tracing
+
+Pass `--debug` (or `-d`) to any command to raise console log verbosity to
+`Debug` and export distributed traces + logs over OTLP/HTTP to a local
+collector:
+
+```bash
+docker compose -f apps/cli/docker-compose.yml up -d
+mono-cli work start PROJ-123 --debug
+```
+
+Then open http://localhost:16686, select the `mono-cli` service, and
+inspect the trace — it shows the full call tree (Jira API calls, git
+subprocess calls) with timing for each step.
+
+- `--debug` raises the console log level to `Debug`, unless `--log-level`
+  is passed explicitly (which always wins).
+- The OTLP endpoint defaults to `http://localhost:4318` (matching
+  `docker-compose.yml`'s Jaeger container) and can be overridden with the
+  `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable.
+- If the collector isn't reachable, the export fails silently in the
+  background — it never blocks or fails the command itself.
