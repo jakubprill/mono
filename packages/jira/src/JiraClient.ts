@@ -77,7 +77,10 @@ export class JiraClient extends Context.Service<
             const raw =
               yield* HttpClientResponse.schemaBodyJson(RawIssue)(response);
             return toIssue(raw);
-          }).pipe(Effect.catch((error) => mapError(key, error))),
+          }).pipe(
+            Effect.catch((error) => mapError(key, error)),
+            Effect.annotateSpans({ "jira.issue_key": key }),
+          ),
       );
 
       const getIssueRaw = Effect.fn("JiraClient.getIssueRaw")(
@@ -85,7 +88,10 @@ export class JiraClient extends Context.Service<
           Effect.gen(function* () {
             const response = yield* fetchIssueResponse(key);
             return yield* response.text;
-          }).pipe(Effect.catch((error) => mapError(key, error))),
+          }).pipe(
+            Effect.catch((error) => mapError(key, error)),
+            Effect.annotateSpans({ "jira.issue_key": key }),
+          ),
       );
 
       const getTransitions = Effect.fn("JiraClient.getTransitions")(
@@ -99,7 +105,10 @@ export class JiraClient extends Context.Service<
               RawTransitionsResponse,
             )(response);
             return raw.transitions.map(toTransition);
-          }).pipe(Effect.catch((error) => mapError(key, error))),
+          }).pipe(
+            Effect.catch((error) => mapError(key, error)),
+            Effect.annotateSpans({ "jira.issue_key": key }),
+          ),
       );
 
       const transitionIssue = Effect.fn("JiraClient.transitionIssue")(
@@ -114,7 +123,13 @@ export class JiraClient extends Context.Service<
               }),
             );
             yield* http.execute(request);
-          }).pipe(Effect.catch((error) => mapError(key, error))),
+          }).pipe(
+            Effect.catch((error) => mapError(key, error)),
+            Effect.annotateSpans({
+              "jira.issue_key": key,
+              "jira.transition_id": transitionId,
+            }),
+          ),
       );
 
       return { getIssue, getIssueRaw, getTransitions, transitionIssue };
