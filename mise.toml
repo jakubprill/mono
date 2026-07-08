@@ -6,6 +6,10 @@ JIRA_API_TOKEN= { required = true }
 bun = "1.3.14"
 biome = "2.5.2"
 lefthook = "2.1.9"
+docker-cli = "latest"
+docker-compose = "latest"
+lima = "latest"
+colima = "latest"
 
 [tasks.install-cli]
 description = "Build and install CLI globally"
