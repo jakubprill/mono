@@ -2,6 +2,7 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect } from "effect";
 import { Argument, Command, Flag, GlobalFlag } from "effect/unstable/cli";
 import { FetchHttpClient } from "effect/unstable/http";
+import { initCommand } from "./init/command.ts";
 import { jiraCommand } from "./jira/command.ts";
 import { CLI_VERSION, DebugFlag, DebugLayer } from "./observability.ts";
 import { workCommand } from "./work/command.ts";
@@ -16,7 +17,7 @@ const greet = Command.make("greet", { name, shout }, ({ name, shout }) => {
 
 const cli = Command.make("mono-cli", {}).pipe(
   Command.withDescription("mono CLI"),
-  Command.withSubcommands([greet, jiraCommand, workCommand]),
+  Command.withSubcommands([greet, initCommand, jiraCommand, workCommand]),
   // Ordering here is a TypeScript-only constraint, not a runtime one:
   // `Command.withGlobalFlags`'s `Exclude<R, ...>` can only strip types
   // already present in R at the point it's called in this pipe, so it
