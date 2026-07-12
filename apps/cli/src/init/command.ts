@@ -29,7 +29,7 @@ export const runInit = (repoRoot: string) =>
     yield* writeSchema(repoRoot);
     yield* ensureGitignoreEntry(repoRoot);
     yield* Console.log(`Initialized mono-cli in ${repoRoot}`);
-  });
+  }).pipe(Effect.withSpan("init", { attributes: { "repo.root": repoRoot } }));
 
 export const initCommand = Command.make("init", {}, () =>
   Effect.gen(function* () {
