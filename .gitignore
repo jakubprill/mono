@@ -38,3 +38,6 @@ fnox.toml
 
 # mise local env overrides (machine-local, not shared)
 mise.local.toml
+
+# mono-cli generated schema (per-repo local artifact, regenerate via `mono-cli init`)
+.mono/schema.json
