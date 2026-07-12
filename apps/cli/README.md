@@ -7,8 +7,8 @@ CLI for frontend dev workflows across git and Jira.
 - `mono-cli jira <issue> ...` — view/move Jira issues
 - `mono-cli work start <KEY> [--source|-s <branch>]` — create a git branch for
   a Jira issue and (optionally) transition its status
-- `mono-cli config schema` — write a JSON Schema for `mono.config.json` to
-  `<repo-root>/.mono/schema.json`
+- `mono-cli init` — set up a consumer repo: creates `mono.config.json` skeleton if
+  missing, generates `.mono/schema.json`, and updates `.gitignore`
 
 ## Configuration
 
@@ -49,8 +49,8 @@ Both files share the same shape:
   status name after creating the branch (skipped with a warning if no
   matching transition exists).
 
-Run `mono-cli config schema` to generate a schema file and reference it via
-`$schema` for editor autocomplete.
+Run `mono-cli init` to set up your repo with `mono.config.json` and `.mono/schema.json`
+for editor autocomplete via the `$schema` field.
 
 ## Debugging / Tracing
 
