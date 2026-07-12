@@ -19,17 +19,20 @@ afterEach(() => {
   rmSync(repoDir, { recursive: true, force: true });
 });
 
+const SCHEMA_COMMENT =
+  "# mono-cli generated schema (per-repo local artifact, regenerate via `mono-cli init`)";
+
 describe("ensureGitignoreEntry", () => {
-  test("creates .gitignore with the entry when missing", async () => {
+  test("creates .gitignore with a comment above the entry when missing", async () => {
     await Effect.runPromise(
       ensureGitignoreEntry(repoDir).pipe(Effect.provide(testLayer)),
     );
 
     const content = readFileSync(join(repoDir, ".gitignore"), "utf8");
-    expect(content).toBe(".mono/schema.json\n");
+    expect(content).toBe(`${SCHEMA_COMMENT}\n.mono/schema.json\n`);
   });
 
-  test("appends the entry to an existing .gitignore", async () => {
+  test("appends a blank line, comment, then the entry to an existing .gitignore", async () => {
     const gitignorePath = join(repoDir, ".gitignore");
     writeFileSync(gitignorePath, "node_modules\n");
 
@@ -38,10 +41,29 @@ describe("ensureGitignoreEntry", () => {
     );
 
     const content = readFileSync(gitignorePath, "utf8");
-    expect(content).toBe("node_modules\n.mono/schema.json\n");
+    expect(content).toBe(
+      `node_modules\n\n${SCHEMA_COMMENT}\n.mono/schema.json\n`,
+    );
   });
 
   test("does not duplicate an existing entry", async () => {
+    const gitignorePath = join(repoDir, ".gitignore");
+    writeFileSync(
+      gitignorePath,
+      `node_modules\n\n${SCHEMA_COMMENT}\n.mono/schema.json\n`,
+    );
+
+    await Effect.runPromise(
+      ensureGitignoreEntry(repoDir).pipe(Effect.provide(testLayer)),
+    );
+
+    const content = readFileSync(gitignorePath, "utf8");
+    expect(content).toBe(
+      `node_modules\n\n${SCHEMA_COMMENT}\n.mono/schema.json\n`,
+    );
+  });
+
+  test("does not duplicate a bare pre-existing entry from before the comment was added", async () => {
     const gitignorePath = join(repoDir, ".gitignore");
     writeFileSync(gitignorePath, "node_modules\n.mono/schema.json\n");
 
